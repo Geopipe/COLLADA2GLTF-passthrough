@@ -57,20 +57,20 @@ namespace GLTF
 
     typedef std::map<std::string, std::shared_ptr<GLTFOutputStream> > NameToOutputStream;
 
-	struct UniqueIdMesher {
-		size_t operator()(const COLLADAFW::UniqueId& uniqueID) const {
-			return ((std::hash<int64_t>()((int64_t)uniqueID.getClassId())) << 2) ^
-			       ((std::hash<COLLADAFW::ObjectId>()(uniqueID.getObjectId())) << 1) ^
-			       ((std::hash<COLLADAFW::FileId>()(uniqueID.getFileId())) << 0);
-		}
-	};
+    // Conceptually it would be nice to reuse a lambda,
+    // but then we would have to pass it in everywhere
+    struct UniqueIDHasher {
+        size_t operator()(const COLLADAFW::UniqueId& uniqueID) {
+            return (size_t)uniqueID;
+        };
+    };
 
     //types for late binding of material
     class MaterialBindingsPrimitiveMap : public std::map<unsigned int, std::shared_ptr <COLLADAFW::MaterialBinding>> {};
     typedef std::map<std::string, std::shared_ptr <MaterialBindingsPrimitiveMap> > MaterialBindingsForMeshUID;
     typedef std::map<std::string, std::shared_ptr <MaterialBindingsForMeshUID> > MaterialBindingsForNodeUID;
-	typedef std::unordered_set<COLLADAFW::UniqueId, UniqueIdMesher> MaterialBindingSet;
-	typedef std::map<std::string, MaterialBindingSet> MaterialBindingSetsForMeshUID;
+    typedef std::unordered_set<COLLADAFW::UniqueId, UniqueIDHasher> MaterialBindingSet;
+    typedef std::map<std::string, MaterialBindingSet> MaterialBindingSetsForMeshUID;
 
     class COLLADA2GLTF_EXPORT GLTFAsset : public GLTFAssetValueEvaluator, public JSONValueApplier
     {
@@ -133,7 +133,7 @@ namespace GLTF
         std::vector <std::shared_ptr<GLTFAssetModifier> > &assetModifiers() { return this->_assetModifiers; };
 
         MaterialBindingsForNodeUID& materialBindingsForNodeUID() { return this->_materialBindingsForNodeUID; }
-		MaterialBindingSetsForMeshUID& materialBindingSetsForMeshUID() { return this->_materialBindingsForMeshUID; }
+        MaterialBindingSetsForMeshUID& materialBindingSetsForMeshUID() { return this->_materialBindingsForMeshUID; }
 
         std::shared_ptr<JSONObject> getExtras();
         void setExtras(std::shared_ptr<JSONObject>);
@@ -212,7 +212,7 @@ namespace GLTF
         std::vector <std::shared_ptr<GLTFAssetModifier> > _assetModifiers;
 
         MaterialBindingsForNodeUID _materialBindingsForNodeUID;
-		MaterialBindingSetsForMeshUID _materialBindingsForMeshUID;
+        MaterialBindingSetsForMeshUID _materialBindingsForMeshUID;
         
         std::vector <std::shared_ptr<GLTFAssetValueEvaluator>> _evaluators;
 
