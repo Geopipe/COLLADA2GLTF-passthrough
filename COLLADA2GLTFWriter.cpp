@@ -320,7 +320,7 @@ namespace GLTF
             }
         }
 
-        // This optimization will prevent incredibly inefficient O(n^2) scanning in writeNode()
+        // Cache existing mappings for later re-use
         MaterialBindingSetsForMeshUID& mbForMeshUID = this->_asset->materialBindingSetsForMeshUID();
         MaterialBindingSet& materialBindingSet = mbForMeshUID[prefixedMeshUID];
         for(size_t k = 0; k < materialBindings.getCount(); k++) {

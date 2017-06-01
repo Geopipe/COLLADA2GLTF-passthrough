@@ -60,7 +60,7 @@ namespace GLTF
     // Conceptually it would be nice to reuse a lambda,
     // but then we would have to pass it in everywhere
     struct UniqueIDHasher {
-        size_t operator()(const COLLADAFW::UniqueId& uniqueID) {
+        size_t operator()(const COLLADAFW::UniqueId& uniqueID) const {
             return (size_t)uniqueID;
         };
     };
