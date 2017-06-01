@@ -41,8 +41,8 @@ endif()
 # Lets libxml2 work in a shared library
 add_definitions(-DLIBXML_STATIC_FOR_DLL)
 
-IF(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64") 
- ADD_DEFINITIONS(-fPIC) 
+IF(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+ ADD_DEFINITIONS(-fPIC)
 ENDIF(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
 
 include_directories(${COLLADA2GLTF_SOURCE_DIR})
@@ -60,6 +60,7 @@ if(NOT DEFINED OPENCOLLADA_INCLUDE_DIRS)
 	include_directories(${COLLADA2GLTF_SOURCE_DIR}/dependencies/OpenCOLLADA/COLLADASaxFrameworkLoader/include)
 	include_directories(${COLLADA2GLTF_SOURCE_DIR}/dependencies/OpenCOLLADA/GeneratedSaxParser/include)
 endif()
+
 if (WIN32)
     include_directories(${COLLADA2GLTF_SOURCE_DIR}/dependencies/misc)
 endif()
@@ -91,7 +92,6 @@ if (WIN32)
     add_definitions(-DWIN32)
     add_definitions(-EHsc)
 endif()
-
 
 if(NOT DEFINED OPENCOLLADA_INCLUDE_DIRS)
 	add_subdirectory(dependencies/OpenCOLLADA)
@@ -176,7 +176,7 @@ set(GLTF_SOURCES
     JSON/JSONObject.h
     JSON/JSONString.h
     JSON/JSONValue.h
-    
+
     assetModifiers/GLTFAssetModifier.h
     assetModifiers/GLTFFlipUVModifier.h
     assetModifiers/GLTFFlipUVModifier.cpp
@@ -213,6 +213,10 @@ endif()
 IF("${CMAKE_SYSTEM}" MATCHES "Linux")
     LIST(APPEND TARGET_LIBS rt)
 endif("${CMAKE_SYSTEM}" MATCHES "Linux")
+
+if (WIN32)
+    LIST(APPEND TARGET_LIBS ws2_32.lib)
+endif ()
 
 target_link_libraries (collada2gltfConvert ${TARGET_LIBS})
 
