@@ -17,9 +17,7 @@ Compiled binaries for Windows and Linux can be found under [releases](https://gi
 A live build of the current master branch is available as [latest](https://github.com/lasalvavida/COLLADA2GLTF/releases/tag/latest).
 These binaries are updated whenever master changes, the build succeeds, and the tests pass. These binaries are bleeding-edge and are not guaranteed to be stable.
 
-## Compile from source
-
-1. Clone repository
+## Compile from source 
 
   ```bash
   git clone --recursive https://github.com/KhronosGroup/COLLADA2GLTF.git
@@ -49,6 +47,7 @@ These binaries are updated whenever master changes, the build succeeds, and the 
   COLLADA2GLTF-test[.exe]
   GLTF-test[.exe]
   ```
+=======
 
 ## Usage
 
