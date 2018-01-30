@@ -97,10 +97,7 @@ if(PRECOMPILED_DIR)
     ${PRECOMPILED_DIR}/pcre.lib)
 endif()
 
-
-=======
-
-if(AND (NOT DEFINED COLLADA_LIBRARIES) (NOT DEFINED COLLADA_FRAMEWORK_LIBRARIES))
+if(NOT DEFINED COLLADA_LIBRARIES AND NOT DEFINED COLLADA_FRAMEWORK_LIBRARIES)
   # COLLADASaxFrameworkLoader/BaseUtils/Framework, GeneratedSaxParser
   include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADASaxFrameworkLoader/include)
   include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADABaseUtils/include)
