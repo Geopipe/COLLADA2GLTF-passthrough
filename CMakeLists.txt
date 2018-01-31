@@ -107,6 +107,8 @@ if(NOT DEFINED COLLADA_LIBRARIES AND NOT DEFINED COLLADA_FRAMEWORK_LIBRARIES)
     add_subdirectory(dependencies/OpenCOLLADA/modules/COLLADASaxFrameworkLoader)
     set(OpenCOLLADA COLLADASaxFrameworkLoader)
   endif()
+else()
+  set(OpenCOLLADA ${COLLADA_LIBRARIES} ${COLLADA_FRAMEWORK_LIBRARIES})
 endif()
 
 # COLLADA2GLTF
