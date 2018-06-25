@@ -13,76 +13,108 @@ bool GLTF::Material::hasTexture() {
 	return this->values->diffuseTexture != NULL;
 }
 
+std::string GLTF::Material::typeName() {
+	return "material";
+}
+
 void GLTF::Material::Values::writeJSON(void* writer, GLTF::Options* options) {
 	rapidjson::Writer<rapidjson::StringBuffer>* jsonWriter = (rapidjson::Writer<rapidjson::StringBuffer>*)writer;
 	if (ambient != NULL || ambientTexture != NULL) {
 		jsonWriter->Key("ambient");
-		jsonWriter->StartArray();
-		if (ambientTexture != NULL) {
-			jsonWriter->Int(ambientTexture->id);
+		if (ambientTexture != NULL && options->version == "1.0") {
+			jsonWriter->String(ambientTexture->getStringId().c_str());
 		}
 		else {
-			for (int i = 0; i < 4; i++) {
-				jsonWriter->Double(ambient[i]);
+			jsonWriter->StartArray();
+			if (ambientTexture != NULL) {
+				jsonWriter->Int(ambientTexture->id);
 			}
+			else {
+				for (int i = 0; i < 4; i++) {
+					jsonWriter->Double(ambient[i]);
+				}
+			}
+			jsonWriter->EndArray();
 		}
-		jsonWriter->EndArray();
 	}
 
 	if (diffuse != NULL || diffuseTexture != NULL) {
 		jsonWriter->Key("diffuse");
-		jsonWriter->StartArray();
-		if (diffuseTexture != NULL) {
-			jsonWriter->Int(diffuseTexture->id);
+		if (diffuseTexture != NULL && options->version == "1.0") {
+			jsonWriter->String(diffuseTexture->getStringId().c_str());
 		}
 		else {
-			for (int i = 0; i < 4; i++) {
-				jsonWriter->Double(diffuse[i]);
+			jsonWriter->StartArray();
+			if (diffuseTexture != NULL) {
+				jsonWriter->Int(diffuseTexture->id);
 			}
+			else {
+				for (int i = 0; i < 4; i++) {
+					jsonWriter->Double(diffuse[i]);
+				}
+			}
+			jsonWriter->EndArray();
 		}
-		jsonWriter->EndArray();
 	}
 
 	if (emission != NULL || emissionTexture != NULL) {
 		jsonWriter->Key("emission");
-		jsonWriter->StartArray();
-		if (emissionTexture != NULL) {
-			jsonWriter->Int(emissionTexture->id);
+		if (emissionTexture != NULL && options->version == "1.0") {
+			jsonWriter->String(emissionTexture->getStringId().c_str());
 		}
 		else {
-			for (int i = 0; i < 4; i++) {
-				jsonWriter->Double(emission[i]);
+			jsonWriter->StartArray();
+			if (emissionTexture != NULL) {
+				jsonWriter->Int(emissionTexture->id);
 			}
+			else {
+				for (int i = 0; i < 4; i++) {
+					jsonWriter->Double(emission[i]);
+				}
+			}
+			jsonWriter->EndArray();
 		}
-		jsonWriter->EndArray();
 	}
 
 	if (specular != NULL || specularTexture != NULL) {
 		jsonWriter->Key("specular");
-		jsonWriter->StartArray();
-		if (specularTexture != NULL) {
-			jsonWriter->Int(specularTexture->id);
+		if (specularTexture != NULL && options->version == "1.0") {
+			jsonWriter->String(specularTexture->getStringId().c_str());
 		}
 		else {
-			for (int i = 0; i < 4; i++) {
-				jsonWriter->Double(specular[i]);
+			jsonWriter->StartArray();
+			if (specularTexture != NULL) {
+				jsonWriter->Int(specularTexture->id);
 			}
+			else {
+				for (int i = 0; i < 4; i++) {
+					jsonWriter->Double(specular[i]);
+				}
+			}
+			jsonWriter->EndArray();
 		}
-		jsonWriter->EndArray();
 	}
 
 	if (shininess != NULL) {
 		jsonWriter->Key("shininess");
-		jsonWriter->StartArray();
+		if (options->version != "1.0") {
+			jsonWriter->StartArray();
+		}
 		jsonWriter->Double(this->shininess[0]);
-		jsonWriter->EndArray();
+		if (options->version != "1.0") {
+			jsonWriter->EndArray();
+		}
 	}
 
 	if (transparency != NULL) {
 		jsonWriter->Key("transparency");
-		jsonWriter->StartArray();
+		if (options->version != "1.0") {
+			jsonWriter->StartArray();
+		}
 		jsonWriter->Double(this->transparency[0]);
-		jsonWriter->EndArray();
+		if (options->version != "1.0") {
+			jsonWriter->EndArray();
+		}
 	}
 }
 
@@ -96,16 +128,21 @@ void GLTF::Material::writeJSON(void* writer, GLTF::Options* options) {
 	}
 	if (this->technique) {
 		jsonWriter->Key("technique");
-		jsonWriter->Int(this->technique->id);
+		if (options->version == "1.0") {
+			jsonWriter->String(technique->getStringId().c_str());
+		}
+		else {
+			jsonWriter->Int(technique->id);
+		}
 	}
 	GLTF::Object::writeJSON(writer, options);
 }
 
 void GLTF::MaterialPBR::Texture::writeJSON(void* writer, GLTF::Options* options) {
-	rapidjson::Writer<rapidjson::StringBuffer>* jsonWriter = (rapidjson::Writer<rapidjson::StringBuffer>*)writer;
-	if (scale >= 0) {
+	rapidjson::Writer<rapidjson::StringBuffer>* jsonWriter = static_cast<rapidjson::Writer<rapidjson::StringBuffer>*>(writer);
+	if (scale != 1) {
 		jsonWriter->Key("scale");
-		jsonWriter->Int(scale);
+		jsonWriter->Double(scale);
 	}
 	if (texture) {
 		jsonWriter->Key("index");
@@ -242,12 +279,16 @@ void GLTF::MaterialPBR::writeJSON(void* writer, GLTF::Options* options) {
 		}
 	}
 
-	if (this->doubleSided) {
+	if (options->doubleSided || this->doubleSided) {
 		jsonWriter->Key("doubleSided");
 		jsonWriter->Bool(true);
 	}
 
 	GLTF::Object::writeJSON(writer, options);
+}
+
+std::string GLTF::MaterialCommon::Light::typeName() {
+	return "light";
 }
 
 void GLTF::MaterialCommon::Light::writeJSON(void* writer, GLTF::Options* options) {
@@ -309,13 +350,15 @@ const char* GLTF::MaterialCommon::getTechniqueName() {
 	return NULL;
 }
 
-GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights) {
-	return getMaterial(lights, false);
+GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, GLTF::Options* options) {
+	return getMaterial(lights, false, options);
 }
 
-GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, bool hasColor) {
+GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, bool hasColor, GLTF::Options* options) {
 	GLTF::Material* material = new GLTF::Material();
 	material->values = values;
+	material->name = name;
+	material->stringId = stringId;
 	GLTF::Technique* technique = new GLTF::Technique();
 	material->technique = technique;
 	GLTF::Program* program = new GLTF::Program();
@@ -426,6 +469,7 @@ GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialComm
 				std::string transformName = name + "Transform";
 				GLTF::Technique::Parameter* nodeTransform = new GLTF::Technique::Parameter("MODELVIEW", GLTF::Constants::WebGL::FLOAT_MAT4);
 				nodeTransform->node = node->id;
+				nodeTransform->nodeString = node->getStringId();
 				technique->parameters[transformName] = nodeTransform;
 				technique->uniforms["u_" + transformName] = transformName;
 				vertexShaderSource += "uniform mat4 u_" + transformName + ";\n";
@@ -483,7 +527,7 @@ GLTF::Material* GLTF::MaterialCommon::getMaterial(std::vector<GLTF::MaterialComm
 		technique->blendFuncSeparate.push_back(GLTF::Constants::WebGL::ONE);
 		technique->blendFuncSeparate.push_back(GLTF::Constants::WebGL::ONE_MINUS_SRC_ALPHA);
 	}
-	else if (doubleSided) {
+	else if (doubleSided || options->doubleSided) {
 		technique->enableStates.insert(GLTF::Constants::WebGL::DEPTH_TEST);
 	}
 	else {
@@ -680,7 +724,7 @@ void main(void) {\n";
 	}
 	if (hasNormals) {
 		fragmentShaderSource += "    vec3 normal = normalize(v_normal);\n";
-		if (doubleSided) {
+		if (doubleSided || options->doubleSided) {
 			fragmentShaderSource += "\
     if (gl_FrontFacing == false)\n\
     {\n\
@@ -771,7 +815,7 @@ void main(void) {\n";
 	return material;
 }
 
-std::string GLTF::MaterialCommon::getTechniqueKey() {
+std::string GLTF::MaterialCommon::getTechniqueKey(GLTF::Options* options) {
 	std::string id = "";
 	if (values->ambient != NULL) {
 		id += "AMBIENT;";
@@ -794,7 +838,7 @@ std::string GLTF::MaterialCommon::getTechniqueKey() {
 	if (values->transparency != NULL) {
 		id += "TRANSPARENCY;";
 	}
-	if (doubleSided) {
+	if (doubleSided || options->doubleSided) {
 		id += "DOUBLESIDED;";
 	}
 	if (transparent) {
@@ -812,12 +856,12 @@ GLTF::MaterialPBR::MaterialPBR() {
 	this->specularGlossiness = new GLTF::MaterialPBR::SpecularGlossiness();
 }
 
-GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(bool specularGlossiness) {
+GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) {
 	GLTF::MaterialPBR* material = new GLTF::MaterialPBR();
 	material->metallicRoughness->metallicFactor = 0;
 	if (values->diffuse) {
 		material->metallicRoughness->baseColorFactor = values->diffuse;
-		if (specularGlossiness) {
+		if (options->specularGlossiness) {
 			material->specularGlossiness->diffuseFactor = values->diffuse;
 		}
 	}
@@ -825,7 +869,7 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(bool specularGlossiness)
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
 		texture->texture = values->diffuseTexture;
 		material->metallicRoughness->baseColorTexture = texture;
-		if (specularGlossiness) {
+		if (options->specularGlossiness) {
 			material->specularGlossiness->diffuseTexture = texture;
 		}
 	}
@@ -835,7 +879,7 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(bool specularGlossiness)
 	}
 	if (values->emissionTexture) {
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
-		texture->texture = values->diffuseTexture;
+		texture->texture = values->emissionTexture;
 		material->emissiveTexture = texture;
 		material->emissiveFactor = new float[3]{ 1.0, 1.0, 1.0 };
 	}
@@ -846,7 +890,7 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(bool specularGlossiness)
 		material->occlusionTexture = texture;
 	}
 
-	if (specularGlossiness) {
+	if (options->specularGlossiness) {
 		if (values->specular) {
 			material->specularGlossiness->specularFactor = values->specular;
 		}
@@ -870,6 +914,10 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(bool specularGlossiness)
 		texture->texture = values->bumpTexture;
 		material->normalTexture = texture;
 	}
+
+	if (options->doubleSided || doubleSided) {
+		material->doubleSided = true;
+	}
 	material->name = name;
 	return material;
 }
@@ -880,8 +928,10 @@ void GLTF::MaterialCommon::writeJSON(void* writer, GLTF::Options* options) {
 	jsonWriter->StartObject();
 	jsonWriter->Key("KHR_materials_common");
 	jsonWriter->StartObject();
-	jsonWriter->Key("doubleSided");
-	jsonWriter->Bool(this->doubleSided);
+	if (options->doubleSided || this->doubleSided) {
+		jsonWriter->Key("doubleSided");
+		jsonWriter->Bool(true);
+	}
 	if (this->jointCount > 0) {
 		jsonWriter->Key("jointCount");
 		jsonWriter->Int(this->jointCount);

@@ -37,9 +37,11 @@ namespace GLTF {
 		GLTF::Technique* technique = NULL;
 		Type type = Type::UNKNOWN;
 		Values* values = NULL;
+		bool doubleSided = false;
 
 		Material();
 		bool hasTexture();
+		virtual std::string typeName();
 		virtual void writeJSON(void* writer, GLTF::Options* options);
 	};
 
@@ -47,7 +49,7 @@ namespace GLTF {
 	public: 
 		class Texture : public GLTF::Object {
 		public:
-			int scale = -1;
+			float scale = 1;
 			GLTF::Texture* texture = NULL;
 			int texCoord = -1;
 
@@ -122,10 +124,10 @@ namespace GLTF {
 			float quadraticAttenuation;
 			void* node = NULL;
 
+			virtual std::string typeName();
 			virtual void writeJSON(void* writer, GLTF::Options* options);
 		};
 
-		bool doubleSided = false;
 		int jointCount = 0;
 		bool transparent = false;
 
@@ -133,10 +135,10 @@ namespace GLTF {
 
 		MaterialCommon();
 		const char* getTechniqueName();
-		GLTF::Material* getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights);
-		GLTF::Material* getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, bool hasColorAttribute);
-		std::string getTechniqueKey();
-		GLTF::MaterialPBR* getMaterialPBR(bool specularGlossiness);
+		GLTF::Material* getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, GLTF::Options* options);
+		GLTF::Material* getMaterial(std::vector<GLTF::MaterialCommon::Light*> lights, bool hasColorAttribute, GLTF::Options* options);
+		std::string getTechniqueKey(GLTF::Options* options);
+		GLTF::MaterialPBR* getMaterialPBR(GLTF::Options* options);
 		virtual void writeJSON(void* writer, GLTF::Options* options);
 	};
 }

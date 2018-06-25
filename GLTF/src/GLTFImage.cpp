@@ -9,10 +9,13 @@
 
 std::map<std::string, GLTF::Image*> _imageCache;
 
-GLTF::Image::Image(std::string uri) : uri(uri) {}
+GLTF::Image::Image(std::string uri, std::string cacheKey) : uri(uri), cacheKey(cacheKey) {}
 
-GLTF::Image::Image(std::string uri, unsigned char* data, size_t byteLength, std::string fileExtension) : uri(uri), data(data), byteLength(byteLength) {
-	if (std::string((char*)data, 1, 8) == "PNG\r\n\x1a\n") {
+GLTF::Image::Image(std::string uri) : Image(uri, "") {}
+
+GLTF::Image::Image(std::string uri, std::string cacheKey, unsigned char* data, size_t byteLength, std::string fileExtension) : uri(uri), data(data), byteLength(byteLength), cacheKey(cacheKey) {
+	std::string dataSubstring((char*)data, 8);
+	if (dataSubstring.substr(1, 7) == "PNG\r\n\x1a\n") {
 		mimeType = "image/png";
 	}
 	else if (data[0] == 255 && data[1] == 216) {
@@ -23,6 +26,14 @@ GLTF::Image::Image(std::string uri, unsigned char* data, size_t byteLength, std:
 	}
 }
 
+GLTF::Image::Image(std::string uri, unsigned char* data, size_t byteLength, std::string fileExtension) : Image(uri, "", data, byteLength, fileExtension) {}
+
+GLTF::Image::~Image() {
+	if (!cacheKey.empty()) {
+		_imageCache.erase(cacheKey);
+	}
+}
+
 GLTF::Image* GLTF::Image::load(path imagePath) {
 	std::string fileString = imagePath.string();
 	std::map<std::string, GLTF::Image*>::iterator imageCacheIt = _imageCache.find(fileString);
@@ -30,11 +41,12 @@ GLTF::Image* GLTF::Image::load(path imagePath) {
 		return imageCacheIt->second;
 	}
 	std::string fileExtension = imagePath.extension().string();
+	fileExtension.erase(0, 1);
 	GLTF::Image* image = NULL;
 	FILE* file = fopen(fileString.c_str(), "rb");
 	if (file == NULL) {
 		std::cout << "WARNING: Image uri: " << fileString << " could not be resolved " << std::endl;
-		image = new GLTF::Image(imagePath.filename().string());
+		image = new GLTF::Image(imagePath.filename().string(), fileString);
 	}
 	else {
 		fseek(file, 0, SEEK_END);
@@ -44,7 +56,7 @@ GLTF::Image* GLTF::Image::load(path imagePath) {
 		unsigned char* buffer = (unsigned char*)malloc(size);
 		int bytesRead = fread(buffer, sizeof(unsigned char), size, file);
 		fclose(file);
-		image = new GLTF::Image(imagePath.filename().string(), buffer, bytesRead, fileExtension);
+		image = new GLTF::Image(imagePath.filename().string(), fileString, buffer, bytesRead, fileExtension);
 	}
 	_imageCache[fileString] = image;
 	return image;
@@ -97,6 +109,10 @@ std::pair<int, int> GLTF::Image::getDimensions() {
 	return std::pair<int, int>(width, height);
 }
 
+std::string GLTF::Image::typeName() {
+	return "image";
+}
+
 void GLTF::Image::writeJSON(void* writer, GLTF::Options* options) {
 	rapidjson::Writer<rapidjson::StringBuffer>* jsonWriter = (rapidjson::Writer<rapidjson::StringBuffer>*)writer;
 
@@ -107,10 +123,28 @@ void GLTF::Image::writeJSON(void* writer, GLTF::Options* options) {
 			jsonWriter->String(embeddedUri.c_str());
 		}
 		else {
-			jsonWriter->Key("bufferView");
-			jsonWriter->Int(bufferView->id);
-			jsonWriter->Key("mimeType");
-			jsonWriter->String(mimeType.c_str());
+			if (options->version == "1.0") {
+				jsonWriter->Key("extensions");
+				jsonWriter->StartObject();
+				jsonWriter->Key("KHR_binary_glTF");
+				jsonWriter->StartObject();
+				jsonWriter->Key("bufferView");
+				jsonWriter->String(bufferView->getStringId().c_str());
+				jsonWriter->Key("mimeType");
+				jsonWriter->String(mimeType.c_str());
+				jsonWriter->Key("width");
+				jsonWriter->Int(getDimensions().first);
+				jsonWriter->Key("height");
+				jsonWriter->Int(getDimensions().second);
+				jsonWriter->EndObject();
+				jsonWriter->EndObject();
+			}
+			else {
+				jsonWriter->Key("bufferView");
+				jsonWriter->Int(bufferView->id);
+				jsonWriter->Key("mimeType");
+				jsonWriter->String(mimeType.c_str());
+			}
 		}
 	}
 	else {

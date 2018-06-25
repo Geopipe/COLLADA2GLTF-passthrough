@@ -36,3 +36,8 @@ deploy:
   on:
     tags: true
   overwrite: true
+  file: $RELEASE_FILE
+  skip_cleanup: true
+  on:
+    tags: true
+  overwrite: true

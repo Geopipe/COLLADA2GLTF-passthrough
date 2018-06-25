@@ -11,12 +11,23 @@
 namespace GLTF {
   class Animation : public GLTF::Object {
   public:
+	enum class Path {
+		TRANSLATION,
+		ROTATION,
+		SCALE,
+		WEIGHTS
+	};
+
 	class Sampler : public GLTF::Object {
 	public:
 		GLTF::Accessor* input;
 		std::string interpolation = "LINEAR";
 		GLTF::Accessor* output;
+		std::string inputString;
+		std::string outputString;
+		Path path;
 
+		virtual std::string typeName();
 		virtual void writeJSON(void* writer, GLTF::Options* options);
 	};
 
@@ -24,11 +35,6 @@ namespace GLTF {
     public:
 		class Target : public GLTF::Object {
 		public:
-			enum class Path {
-				TRANSLATION,
-				ROTATION,
-				SCALE,
-			};
 			GLTF::Node* node;
 			Path path;
 
@@ -43,6 +49,7 @@ namespace GLTF {
 
     std::vector<Channel*> channels;
 
+	virtual std::string typeName();
 	virtual void writeJSON(void* writer, GLTF::Options* options);
   };
 }

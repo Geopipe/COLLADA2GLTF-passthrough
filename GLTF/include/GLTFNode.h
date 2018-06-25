@@ -57,11 +57,14 @@ namespace GLTF {
 		GLTF::Camera* camera;
 		std::vector<GLTF::Node*> children;
 		GLTF::Skin* skin = NULL;
+		std::string jointName;
 		GLTF::Mesh* mesh = NULL;
 		GLTF::MaterialCommon::Light* light = NULL;
 
 		Transform* transform = NULL;
 
+		virtual std::string typeName();
+		virtual GLTF::Object* clone(GLTF::Object* clone);
 		virtual void writeJSON(void* writer, GLTF::Options* options);
 	};
 }

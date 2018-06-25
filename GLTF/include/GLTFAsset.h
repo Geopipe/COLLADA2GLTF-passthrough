@@ -13,6 +13,8 @@
 
 namespace GLTF {
 	class Asset : public GLTF::Object {
+	private:
+		std::vector<GLTF::MaterialCommon::Light*> _ambientLights;
 	public:
 		class Metadata : public GLTF::Object {
 		public:
@@ -45,6 +47,7 @@ namespace GLTF {
 		std::vector<GLTF::Shader*> getAllShaders();
 		std::vector<GLTF::Texture*> getAllTextures();
 		std::vector<GLTF::Image*> getAllImages();
+		std::vector<GLTF::Accessor*> getAllPrimitiveAccessors(GLTF::Primitive* primitive) const;
 		void mergeAnimations();
 		void removeUnusedSemantics();
 		void removeUnusedNodes(GLTF::Options* options);
