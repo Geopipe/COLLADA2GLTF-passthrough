@@ -622,6 +622,14 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 					primitive->attributes[semantic] = (GLTF::Accessor*)NULL;
 				}
 			}
+			if (colladaPrimitive->hasBatchIdIndices()){
+				std::cout << "BATCHID" << '\n';
+				semantic = "BATCHID";
+				buildAttributes[semantic] = std::vector<float>();
+				semanticIndices[semantic] = colladaPrimitive->getBatchIdIndices().getData();
+				semanticData[semantic] = &colladaMesh->getTangents();
+				primitive->attributes[semantic] = (GLTF::Accessor*)NULL;
+			}
 
 			unsigned int index = 0;
 			unsigned int face = 0;

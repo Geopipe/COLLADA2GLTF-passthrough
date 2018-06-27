@@ -50,8 +50,6 @@ namespace COLLADA2GLTF {
 		GLTF::Texture* fromColladaTexture(const COLLADAFW::EffectCommon* effectCommon, COLLADAFW::SamplerID samplerId);
 		GLTF::Texture* fromColladaTexture(const COLLADAFW::EffectCommon* effectCommon, COLLADAFW::Texture texture);
 
-		void interpolateTranslation(float* base, std::vector<float> input, std::vector<float> output, signed_index_t index,
-		                            size_t offset, float time, float* translationOut);
 		float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index);
 		std::string buildAttributeId(const COLLADAFW::MeshVertexData& data, const index_t index, const size_t count);
 
