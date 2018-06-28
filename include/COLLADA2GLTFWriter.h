@@ -51,6 +51,7 @@ namespace COLLADA2GLTF {
 		GLTF::Texture* fromColladaTexture(const COLLADAFW::EffectCommon* effectCommon, COLLADAFW::Texture texture);
 
 		float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index);
+		// int getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index);
 		std::string buildAttributeId(const COLLADAFW::MeshVertexData& data, const index_t index, const size_t count);
 
 	public:

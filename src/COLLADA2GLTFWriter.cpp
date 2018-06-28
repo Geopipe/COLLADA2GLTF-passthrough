@@ -452,7 +452,7 @@ void mapAttributeIndicesArray(const unsigned int* rootIndices, const COLLADAFW::
 GLTF::Accessor* bufferAndMapVertexData(GLTF::BufferView* bufferView, GLTF::Accessor::Type type, const COLLADAFW::MeshVertexData& vertexData, std::map<int, int> indicesMapping) {
 	size_t count = vertexData.getValuesCount();
 	float* floatBuffer = new float[count];
-	COLLADAFW::FloatOrDoubleArray::DataType dataType = vertexData.getType();
+	COLLADAFW::DFI::DataType dataType = vertexData.getType();
 	for (size_t i = 0; i < count; i++) {
 		size_t index = i;
 		std::map<int, int>::iterator mappedIndex = indicesMapping.find(index);
@@ -460,10 +460,10 @@ GLTF::Accessor* bufferAndMapVertexData(GLTF::BufferView* bufferView, GLTF::Acces
 			index = mappedIndex->second;
 		}
 		switch (dataType) {
-		case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+		case COLLADAFW::DFI::DATA_TYPE_DOUBLE:
 			floatBuffer[index] = (float)(vertexData.getDoubleValues()->getData()[i]);
 			break;
-		case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+		case COLLADAFW::DFI::DATA_TYPE_FLOAT:
 			floatBuffer[index] = vertexData.getFloatValues()->getData()[i];
 			break;
 		default:
@@ -477,12 +477,20 @@ GLTF::Accessor* bufferAndMapVertexData(GLTF::BufferView* bufferView, GLTF::Acces
 }
 
 float COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index) {
-	COLLADAFW::FloatOrDoubleArray::DataType type = data.getType();
-	if (type == COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE) {
+	COLLADAFW::DFI::DataType type = data.getType();
+	if (type == COLLADAFW::DFI::DATA_TYPE_DOUBLE) {
 		return (float)data.getDoubleValues()->getData()[index];
 	}
-	return data.getFloatValues()->getData()[index];
+	else if( type == COLLADAFW::DFI::DATA_TYPE_FLOAT){
+		return data.getFloatValues()->getData()[index];
+	}
+	return (float)data.getIntValues()->getData()[index];
 }
+
+// int COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index) {
+// 	COLLADAFW::DFI::DataType type = data.getType();
+// 	return data.getIntValues()->getData()[index];
+// }
 
 std::string COLLADA2GLTF::Writer::buildAttributeId(const COLLADAFW::MeshVertexData& data, const index_t index, const size_t count) {
 	std::string id;
@@ -623,11 +631,10 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 				}
 			}
 			if (colladaPrimitive->hasBatchIdIndices()){
-				std::cout << "BATCHID" << '\n';
 				semantic = "BATCHID";
 				buildAttributes[semantic] = std::vector<float>();
 				semanticIndices[semantic] = colladaPrimitive->getBatchIdIndices().getData();
-				semanticData[semantic] = &colladaMesh->getTangents();
+				semanticData[semantic] = &colladaMesh->getBatchIds();
 				primitive->attributes[semantic] = (GLTF::Accessor*)NULL;
 			}
 
@@ -697,14 +704,27 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 							stride = vertexData->getStride(0);
 						}
 						for (unsigned int k = 0; k < numberOfComponents; k++) {
-							float value = getMeshVertexDataAtIndex(*vertexData, semanticIndex * stride + k);
-							if (flipY && k == 1) {
-								value = 1 - value;
-							}
-							if (position) {
-								value = value * _assetScale;
-							}
-							buildAttributes[semantic].push_back(value);
+							
+							// if(vertexData->getType() == COLLADAFW::DFI::DATA_TYPE_INT){
+							// 	int value = getMeshVertexDataAtIndex(*vertexData, semanticIndex * stride + k);
+							// 	if (flipY && k == 1) {
+							// 		value = 1 - value;
+							// 	}
+							// 	if (position) {
+							// 		value = value * _assetScale;
+							// 	}
+							// 	buildAttributes[semantic].push_back(value);
+							// }
+							// else{
+								float value = getMeshVertexDataAtIndex(*vertexData, semanticIndex * stride + k);
+								if (flipY && k == 1) {
+									value = 1 - value;
+								}
+								if (position) {
+									value = value * _assetScale;
+								}
+								buildAttributes[semantic].push_back(value);
+							// }
 						}
 					}
 					attributeIndicesMapping[attributeId] = index;
@@ -1151,10 +1171,10 @@ bool COLLADA2GLTF::Writer::writeAnimation(const COLLADAFW::Animation* animation)
 		float value;
 		for (size_t i = 0; i < inputLength; i++) {
 			switch (inputArray.getType()) {
-			case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+			case COLLADAFW::DFI::DATA_TYPE_DOUBLE:
 				value = (float)(inputArray.getDoubleValues()->getData()[i]);
 				break;
-			case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+			case COLLADAFW::DFI::DATA_TYPE_FLOAT:
 				value = inputArray.getFloatValues()->getData()[i];
 				break;
 			}
@@ -1162,10 +1182,10 @@ bool COLLADA2GLTF::Writer::writeAnimation(const COLLADAFW::Animation* animation)
 		}
 		for (size_t i = 0; i < outputLength; i++) {
 			switch (outputArray.getType()) {
-			case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+			case COLLADAFW::DFI::DATA_TYPE_DOUBLE:
 				value = (float)(outputArray.getDoubleValues()->getData()[i]);
 				break;
-			case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+			case COLLADAFW::DFI::DATA_TYPE_FLOAT:
 				value = outputArray.getFloatValues()->getData()[i];
 				break;
 			}
@@ -1579,9 +1599,9 @@ bool COLLADA2GLTF::Writer::writeSkinControllerData(const COLLADAFW::SkinControll
 				joint[j] = jointIndex;
 				unsigned int weightIndex = weightIndicesArray[j + offset];
 				float weightValue;
-				if (weightsArray.getType() == COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT) {
+				if (weightsArray.getType() == COLLADAFW::DFI::DATA_TYPE_FLOAT) {
 					weightValue = weightsArray.getFloatValues()->getData()[weightIndex];
-				} else if (weightsArray.getType() == COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE) {
+				} else if (weightsArray.getType() == COLLADAFW::DFI::DATA_TYPE_DOUBLE) {
 					weightValue = (float)weightsArray.getDoubleValues()->getData()[weightIndex];
 				}
 				weight[j] = weightValue;
