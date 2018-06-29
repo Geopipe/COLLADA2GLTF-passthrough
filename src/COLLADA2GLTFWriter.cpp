@@ -481,21 +481,24 @@ float COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(const COLLADAFW::MeshVertex
 	if (type == COLLADAFW::DFI::DATA_TYPE_DOUBLE) {
 		return (float)data.getDoubleValues()->getData()[index];
 	}
-	else if( type == COLLADAFW::DFI::DATA_TYPE_FLOAT){
 		return data.getFloatValues()->getData()[index];
-	}
-	return (float)data.getIntValues()->getData()[index];
 }
 
-// int COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index) {
-// 	COLLADAFW::DFI::DataType type = data.getType();
-// 	return data.getIntValues()->getData()[index];
-// }
+// BatchIds should be returned as an int so precision isn't lose.
+int COLLADA2GLTF::Writer::getMeshVertexDataOfBatchIdsAtIndex(const COLLADAFW::MeshVertexData& data, const index_t index){
+	COLLADAFW::DFI::DataType type = data.getType();
+	return data.getIntValues()->getData()[index];
+}
 
 std::string COLLADA2GLTF::Writer::buildAttributeId(const COLLADAFW::MeshVertexData& data, const index_t index, const size_t count) {
 	std::string id;
 	for (size_t i = 0; i < count; i++) {
-		id += std::to_string(getMeshVertexDataAtIndex(data, index * count + i)) + ":";
+		if(data.getType() == COLLADAFW::DFI::DATA_TYPE_INT){
+			id += std::to_string(getMeshVertexDataOfBatchIdsAtIndex(data, index * count + i)) + ":";
+		}
+		else{
+			id += std::to_string(getMeshVertexDataAtIndex(data, index * count + i)) + ":";
+		}
 	}
 	return id;
 }
@@ -705,17 +708,17 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 						}
 						for (unsigned int k = 0; k < numberOfComponents; k++) {
 							
-							// if(vertexData->getType() == COLLADAFW::DFI::DATA_TYPE_INT){
-							// 	int value = getMeshVertexDataAtIndex(*vertexData, semanticIndex * stride + k);
-							// 	if (flipY && k == 1) {
-							// 		value = 1 - value;
-							// 	}
-							// 	if (position) {
-							// 		value = value * _assetScale;
-							// 	}
-							// 	buildAttributes[semantic].push_back(value);
-							// }
-							// else{
+							if(vertexData->getType() == COLLADAFW::DFI::DATA_TYPE_INT){
+								int value = getMeshVertexDataOfBatchIdsAtIndex(*vertexData, semanticIndex * stride + k);
+								if (flipY && k == 1) {
+									value = 1 - value;
+								}
+								if (position) {
+									value = value * _assetScale;
+								}
+								buildAttributes[semantic].push_back(value);
+							}
+							else{
 								float value = getMeshVertexDataAtIndex(*vertexData, semanticIndex * stride + k);
 								if (flipY && k == 1) {
 									value = 1 - value;
@@ -724,7 +727,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 									value = value * _assetScale;
 								}
 								buildAttributes[semantic].push_back(value);
-							// }
+							}
 						}
 					}
 					attributeIndicesMapping[attributeId] = index;
