@@ -692,6 +692,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 						unsigned int numberOfComponents = 3;
 						bool flipY = false;
 						bool position = false;
+						bool batchid = false;
 						if (semantic.find("TEXCOORD") == 0) {
 							numberOfComponents = 2;
 							flipY = true;
@@ -701,6 +702,10 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 							position = true;
 							mapping.push_back(semanticIndex);
 						}
+						if (semantic == "BATCHID") {
+							batchid = true;
+							numberOfComponents = 1;
+						}
 						const COLLADAFW::MeshVertexData* vertexData = semanticData[semantic];
 						unsigned int stride = numberOfComponents;
 						if (vertexData->getNumInputInfos() > 0) {
@@ -709,12 +714,10 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 						for (unsigned int k = 0; k < numberOfComponents; k++) {
 							
 							if(vertexData->getType() == COLLADAFW::DFI::DATA_TYPE_INT){
+								
 								int value = getMeshVertexDataOfBatchIdsAtIndex(*vertexData, semanticIndex * stride + k);
-								if (flipY && k == 1) {
-									value = 1 - value;
-								}
-								if (position) {
-									value = value * _assetScale;
+								if (batchid) {
+									value = value * (int)_assetScale;
 								}
 								buildAttributes[semantic].push_back(value);
 							}
@@ -774,6 +777,9 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 				GLTF::Accessor::Type type = GLTF::Accessor::Type::VEC3;
 				if (semantic.find("TEXCOORD") == 0) {
 					type = GLTF::Accessor::Type::VEC2;
+				}
+				if (semantic.find("BATCHID") == 0) {
+					type = GLTF::Accessor::Type::SCALAR;
 				}
 				GLTF::Accessor* accessor = new GLTF::Accessor(type, GLTF::Constants::WebGL::FLOAT, (unsigned char*)&attributeData[0], attributeData.size() / GLTF::Accessor::getNumberOfComponents(type), GLTF::Constants::WebGL::ARRAY_BUFFER);
 				primitive->attributes[semantic] = accessor;
