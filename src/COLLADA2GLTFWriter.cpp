@@ -634,7 +634,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 				}
 			}
 			if (colladaPrimitive->hasBatchIdIndices()){
-				semantic = "BATCHID";
+				semantic = "_BATCHID";
 				buildAttributes[semantic] = std::vector<float>();
 				semanticIndices[semantic] = colladaPrimitive->getBatchIdIndices().getData();
 				semanticData[semantic] = &colladaMesh->getBatchIds();
@@ -702,7 +702,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 							position = true;
 							mapping.push_back(semanticIndex);
 						}
-						if (semantic == "BATCHID") {
+						if (semantic == "_BATCHID") {
 							batchid = true;
 							numberOfComponents = 1;
 						}
@@ -778,7 +778,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 				if (semantic.find("TEXCOORD") == 0) {
 					type = GLTF::Accessor::Type::VEC2;
 				}
-				if (semantic.find("BATCHID") == 0) {
+				if (semantic.find("_BATCHID") == 0) {
 					type = GLTF::Accessor::Type::SCALAR;
 				}
 				GLTF::Accessor* accessor = new GLTF::Accessor(type, GLTF::Constants::WebGL::FLOAT, (unsigned char*)&attributeData[0], attributeData.size() / GLTF::Accessor::getNumberOfComponents(type), GLTF::Constants::WebGL::ARRAY_BUFFER);
