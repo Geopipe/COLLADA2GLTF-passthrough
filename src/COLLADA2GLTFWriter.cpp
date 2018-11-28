@@ -19,6 +19,41 @@ void COLLADA2GLTF::Writer::finish() {
 }
 
 bool COLLADA2GLTF::Writer::writeGlobalAsset(const COLLADAFW::FileInfo* asset) {
+	const COLLADAFW::FileInfo::ValuePairPointerArray& valuePairs = asset->getValuePairArray();
+	for (size_t i = 0; i < valuePairs.getCount(); i++) {
+		const COLLADAFW::FileInfo::ValuePair* valuePair = valuePairs[i];
+		const COLLADAFW::String& key = valuePair->first;
+		const COLLADAFW::String& value = valuePair->second;
+
+		// Sketchup versions less than 8 output a transparent
+		// value of zero when they mean fully opaque.
+		//
+		// Identify this issue here and fix transparent
+		// values if present later.
+		if (key == "authoring_tool" && value.find("SketchUp") != std::string::npos) {
+			// Get last whitespace seperated token
+			std::string token;
+			std::stringstream stream(value);
+			std::vector<std::string> tokens;
+
+			while (stream >> token) {
+				tokens.push_back(token);
+			}
+
+			if (tokens.size() > 0) {
+				// Get major version
+				token = tokens[tokens.size() - 1];
+				try {
+					if (std::stoi(token) < 8) {
+						_options->invertTransparency = true;
+					}
+				} catch (const std::invalid_argument& e) {
+					// pass
+				}
+			}
+		}
+	}
+
 	float assetScale = (float)asset->getUnit().getLinearUnitMeter();
 	_assetScale = assetScale;
 	if (asset->getUpAxisType() == COLLADAFW::FileInfo::X_UP) {
@@ -251,7 +286,7 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 				node->mesh = skinnedMesh;
 			}
 
-			const COLLADAFW::MaterialBindingArray &materialBindings = instanceController->getMaterialBindings();
+			const COLLADAFW::MaterialBindingArray& materialBindings = instanceController->getMaterialBindings();
 			for (size_t j = 0; j < materialBindings.getCount(); j++) {
 				COLLADAFW::MaterialBinding materialBinding = materialBindings[j];
 				GLTF::Primitive* primitive = skinnedMesh->primitives[j];
@@ -262,7 +297,6 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 					GLTF::MaterialCommon* materialCommon = (GLTF::MaterialCommon*)material;
 					materialCommon->jointCount = _skinJointNodes[uniqueId].size();
 				}
-				primitive->material = material;
 			}
 
 			for (const COLLADABU::URI& skeletonURI : instanceController->skeletons()) {
@@ -306,38 +340,64 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 	// Instance Geometries
 	const COLLADAFW::InstanceGeometryPointerArray& instanceGeometries = colladaNode->getInstanceGeometries();
 	size_t count = instanceGeometries.getCount();
-	for (size_t i = 0; i < count; i++) {
-		COLLADAFW::InstanceGeometry* instanceGeometry = instanceGeometries[i];
-		COLLADAFW::MaterialBindingArray& materialBindings = instanceGeometry->getMaterialBindings();
-		const COLLADAFW::UniqueId& objectId = instanceGeometry->getInstanciatedObjectId();
-		std::map<int, std::set<GLTF::Primitive*>> primitiveMaterialMapping = _meshMaterialPrimitiveMapping[objectId];
-		std::map<COLLADAFW::UniqueId, GLTF::Mesh*>::iterator iter = _meshInstances.find(objectId);
-		if (iter != _meshInstances.end()) {
-			GLTF::Mesh* mesh = iter->second;
-			for (size_t j = 0; j < materialBindings.getCount(); j++) {
-				COLLADAFW::MaterialBinding materialBinding = materialBindings[j];
-				COLLADAFW::UniqueId materialId = materialBinding.getReferencedMaterial();
-				COLLADAFW::UniqueId effectId = this->_materialEffects[materialId];
-				GLTF::Material* material = _effectInstances[effectId];
-				for (GLTF::Primitive* primitive : primitiveMaterialMapping[materialBinding.getMaterialId()]) {
-					if (primitive->material != NULL && primitive->material != material) {
-						// This mesh primitive has a different material from a previous instance, clone the mesh and primitives
-						GLTF::Mesh* cloneMesh = new GLTF::Mesh();
-						mesh = (GLTF::Mesh*)mesh->clone(cloneMesh);
-						primitive = mesh->primitives[j];
+	if (count > 0) {
+		for (size_t i = 0; i < count; i++) {
+			COLLADAFW::InstanceGeometry* instanceGeometry = instanceGeometries[i];
+			COLLADAFW::MaterialBindingArray& materialBindings = instanceGeometry->getMaterialBindings();
+			const COLLADAFW::UniqueId& objectId = instanceGeometry->getInstanciatedObjectId();
+			std::map<int, std::set<GLTF::Primitive*>> primitiveMaterialMapping = _meshMaterialPrimitiveMapping[objectId];
+			std::map<COLLADAFW::UniqueId, GLTF::Mesh*>::iterator iter = _meshInstances.find(objectId);
+			if (iter != _meshInstances.end()) {
+				GLTF::Mesh* mesh = iter->second;
+				std::map<unsigned int, unsigned int> texCoordSetMapping = _meshTexCoordSetMapping[mesh];
+				for (size_t j = 0; j < materialBindings.getCount(); j++) {
+					COLLADAFW::MaterialBinding materialBinding = materialBindings[j];
+					COLLADAFW::UniqueId materialId = materialBinding.getReferencedMaterial();
+					COLLADAFW::UniqueId effectId = this->_materialEffects[materialId];
+					GLTF::Material* material = _effectInstances[effectId];
+					std::map<std::string, GLTF::Texture*> textureMapping = _effectTextureMapping[effectId];
+					// Assign maps
+					const COLLADAFW::TextureCoordinateBindingArray& texCoordBindings = materialBinding.getTextureCoordinateBindingArray();
+					for (size_t k = 0; k < texCoordBindings.getCount(); k++) {
+						COLLADAFW::TextureCoordinateBinding texCoordBinding = texCoordBindings[k];
+
+						GLTF::Texture* texture = textureMapping[texCoordBinding.getSemantic()];
+						GLTF::MaterialCommon* materialCommon = (GLTF::MaterialCommon*)material;
+						size_t index = texCoordSetMapping[texCoordBinding.getSetIndex()];
+
+						if (materialCommon->values->ambientTexture == texture) {
+							materialCommon->values->ambientTexCoord = index;
+						} else if (materialCommon->values->diffuseTexture == texture) {
+							materialCommon->values->diffuseTexCoord = index;
+						} else if (materialCommon->values->emissionTexture == texture) {
+							materialCommon->values->emissionTexCoord = index;
+						} else if (materialCommon->values->specularTexture == texture) {
+							materialCommon->values->specularTexCoord = index;
+						}
 					}
-					primitive->material = material;
+					for (GLTF::Primitive* primitive : primitiveMaterialMapping[materialBinding.getMaterialId()]) {
+						if (primitive->material != NULL && primitive->material != material) {
+							// This mesh primitive has a different material from a previous instance, clone the mesh and primitives
+							GLTF::Mesh* cloneMesh = new GLTF::Mesh();
+							mesh = (GLTF::Mesh*)mesh->clone(cloneMesh);
+							primitive = mesh->primitives[j];
+						}
+						primitive->material = material;
+					}
 				}
-			}
-			if (node->mesh != NULL) {
-				// Split out a new child node if this one already has a mesh
-				GLTF::Node* meshNode = new GLTF::Node();
-				meshNode->transform = new GLTF::Node::TransformMatrix();
-				meshNode->mesh = mesh;
-				node->children.push_back(meshNode);
-			}
-			else {
-				node->mesh = mesh;
+				if (node->mesh != NULL) {
+					// Split out a new child node if this one already has a mesh
+					GLTF::Node* meshNode = new GLTF::Node();
+					meshNode->transform = new GLTF::Node::TransformMatrix();
+					meshNode->mesh = mesh;
+					node->children.push_back(meshNode);
+				}
+				else {
+					node->mesh = mesh;
+				}
+				if (mesh->weights.size() > 0) {
+					_animatedNodes[_meshMorphTargets[objectId]] = node;
+				}
 			}
 		}
 	}
@@ -522,6 +582,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 
 	const COLLADAFW::MeshPrimitiveArray& meshPrimitives = colladaMesh->getMeshPrimitives();
 	std::map<int, std::set<GLTF::Primitive*>> primitiveMaterialMapping;
+	std::map<unsigned int, unsigned int> texCoordSetMapping;
 	size_t meshPrimitivesCount = meshPrimitives.getCount();
 	if (meshPrimitivesCount > 0) {
 		// Create primitives
@@ -612,6 +673,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 				size_t uvCoordIndicesArrayCount = uvCoordIndicesArray.getCount();
 				for (size_t j = 0; j < uvCoordIndicesArrayCount; j++) {
 					semantic = "TEXCOORD_" + std::to_string(j);
+					texCoordSetMapping[uvCoordIndicesArray[j]->getSetIndex()] = j;
 					buildAttributes[semantic] = std::vector<float>();
 					semanticIndices[semantic] = uvCoordIndicesArray[j]->getIndices().getData();
 					semanticData[semantic] = &colladaMesh->getUVCoords();
@@ -785,6 +847,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
 	}
 	_meshMaterialPrimitiveMapping[uniqueId] = primitiveMaterialMapping;
 	_meshPositionMapping[uniqueId] = positionMapping;
+	_meshTexCoordSetMapping[mesh] = texCoordSetMapping;
 	_meshInstances[uniqueId] = mesh;
 	return true;
 }
@@ -937,6 +1000,9 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 
 	if (commonEffects.getCount() > 0) {
 		GLTF::MaterialCommon* material = new GLTF::MaterialCommon();
+		COLLADAFW::UniqueId effectId = effect->getUniqueId();
+		std::map<std::string, GLTF::Texture*> textureMapping;
+
 		material->stringId = effect->getOriginalId();
 		material->name = effect->getName();
 		if (material->name == "") {
@@ -966,6 +1032,7 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 			COLLADAFW::ColorOrTexture ambient = effectCommon->getAmbient();
 			if (ambient.isTexture()) {
 				material->values->ambientTexture = fromColladaTexture(effectCommon, ambient.getTexture());
+				textureMapping[ambient.getTexture().getTexcoord()] = material->values->ambientTexture;
 			}
 			else if (ambient.isColor()) {
 				material->values->ambient = new float[4];
@@ -976,6 +1043,7 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 		COLLADAFW::ColorOrTexture diffuse = effectCommon->getDiffuse();
 		if (diffuse.isTexture()) {
 			material->values->diffuseTexture = fromColladaTexture(effectCommon, diffuse.getTexture());
+			textureMapping[diffuse.getTexture().getTexcoord()] = material->values->diffuseTexture;
 			if (lockAmbientDiffuse) {
 				material->values->ambientTexture = material->values->diffuseTexture;
 			}
@@ -991,6 +1059,7 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 		COLLADAFW::ColorOrTexture emission = effectCommon->getEmission();
 		if (emission.isTexture()) {
 			material->values->emissionTexture = fromColladaTexture(effectCommon, emission.getTexture());
+			textureMapping[emission.getTexture().getTexcoord()] = material->values->emissionTexture;
 		}
 		else if (emission.isColor()) {
 			material->values->emission = new float[4];
@@ -1000,10 +1069,38 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 		COLLADAFW::ColorOrTexture specular = effectCommon->getSpecular();
 		if (specular.isTexture()) {
 			material->values->specularTexture = fromColladaTexture(effectCommon, specular.getTexture());
+			textureMapping[specular.getTexture().getTexcoord()] = material->values->specularTexture;
 		}
 		else if (specular.isColor()) {
 			material->values->specular = new float[4];
 			packColladaColor(specular.getColor(), material->values->specular);
+		}
+
+		COLLADAFW::ColorOrTexture transparent = effectCommon->getTransparent();
+		if (transparent.isTexture()) {
+			std::cerr << "WARNING: Effect " << effect->getOriginalId() <<
+				" contains a transparent texture that will be omitted from" <<
+				" the converted model." << std::endl;
+		}
+		else if (transparent.isColor()) {
+			float* diffuse = material->values->diffuse;
+			if (diffuse == NULL) {
+				diffuse = new float[4];
+				diffuse[0] = 1.0;
+				diffuse[1] = 1.0;
+				diffuse[2] = 1.0;
+				diffuse[3] = 1.0;
+				material->values->diffuse = diffuse;
+			}
+			float* transparentValues = new float[4];
+			packColladaColor(transparent.getColor(), transparentValues);
+			for (size_t i = 0; i < 4; i++) {
+				diffuse[i] *= transparentValues[i];
+			}
+			if (diffuse[3] < 1.0) {
+				material->transparent = true;
+			}
+			delete transparentValues;
 		}
 
 		COLLADAFW::FloatOrParam shininess = effectCommon->getShininess();
@@ -1018,9 +1115,13 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 		COLLADAFW::FloatOrParam transparency = effectCommon->getTransparency();
 		if (transparency.getType() == COLLADAFW::FloatOrParam::FLOAT) {
 			float transparencyValue = transparency.getFloatValue();
+			if (_options->invertTransparency) {
+				transparencyValue = 1.0 - transparencyValue;
+			}
 			if (transparencyValue >= 0) {
 				material->values->transparency = new float[1];
 				material->values->transparency[0] = transparencyValue;
+				material->transparent = true;
 			}
 		}
 
@@ -1034,7 +1135,8 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
 			material->doubleSided = true;
 		}
 
-		this->_effectInstances[effect->getUniqueId()] = material;
+		_effectTextureMapping[effectId] = textureMapping;
+		_effectInstances[effectId] = material;
 	}
 
 	return true;
@@ -1122,7 +1224,7 @@ bool COLLADA2GLTF::Writer::writeCamera(const COLLADAFW::Camera* colladaCamera) {
 
 bool COLLADA2GLTF::Writer::writeImage(const COLLADAFW::Image* colladaImage) {
 	const COLLADABU::URI imageUri = colladaImage->getImageURI();
-	COLLADABU::URI resolvedPath = COLLADABU::URI(_options->basePath + imageUri.originalStr());
+	COLLADABU::URI resolvedPath = COLLADABU::URI::nativePathToUri(_options->basePath + imageUri.originalStr());
 	GLTF::Image* image = GLTF::Image::load(resolvedPath.toNativePath(COLLADABU::Utils::getSystemType()));
 	image->stringId = colladaImage->getOriginalId();
 	_images[colladaImage->getUniqueId()] = image;
@@ -1251,13 +1353,17 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 	const COLLADAFW::AnimationList::AnimationBindings& bindings = animationList->getAnimationBindings();
 	COLLADAFW::UniqueId animationListId = animationList->getUniqueId();
 	GLTF::Node* node = _animatedNodes[animationList->getUniqueId()];
+
 	float originalRotationAngle = NAN;
 	std::map<COLLADAFW::UniqueId, float>::iterator iter = _originalRotationAngles.find(animationListId);
 	if (iter != _originalRotationAngles.end()) {
 		originalRotationAngle = iter->second;
 	}
 
-	GLTF::Node::Transform* nodeTransform = node->transform;
+	GLTF::Node::Transform* nodeTransform = NULL;
+	if (node != NULL) {
+		nodeTransform = node->transform;
+	}
 	GLTF::Node::TransformTRS* nodeTransformTRS = NULL;
 	std::set<float> timeSet = std::set<float>();
 	GLTF::Node::TransformMatrix* transformMatrix = NULL;
@@ -1265,8 +1371,9 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 	float* translation = NULL;
 	float* rotation = NULL;
 	float* scale = NULL;
+	float* weights = NULL;
 
-	if (nodeTransform) {
+	if (nodeTransform != NULL) {
 		if (nodeTransform->type == GLTF::Node::Transform::MATRIX) {
 			nodeTransformTRS = ((GLTF::Node::TransformMatrix*)nodeTransform)->getTransformTRS();
 		}
@@ -1280,6 +1387,8 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 	bool hasTranslation = false;
 	bool hasRotation = false;
 	bool hasScale = false;
+	bool hasMorph = false;
+	size_t numWeights = 0;
 	for (size_t i = 0; i < bindings.getCount(); i++) {
 		const COLLADAFW::AnimationList::AnimationBinding& binding = bindings[i];
 		std::tuple<std::vector<float>, std::vector<float>> animationData = _animationData[binding.animation];
@@ -1323,8 +1432,14 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 		case COLLADAFW::AnimationList::ANGLE: {
 			hasRotation = true;
 			break;
+		}
+		case COLLADAFW::AnimationList::ARRAY_ELEMENT_1D: {
+			hasMorph = true;
+			numWeights = node->mesh->weights.size();
+			break;
 		}}
 	}
+
 	// Map the set back to a vector and sort
 	std::vector<float> times(timeSet.begin(), timeSet.end());
 	std::sort(times.begin(), times.end());
@@ -1340,15 +1455,18 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 			translation[i * 3 + 2] = nodeTransformTRS->translation[2];
 		}
 	}
+	float* lastRotation = new float[4];
 	if (hasRotation) {
 		rotation = new float[times.size() * 4];
+		for (size_t j = 0; j < 4; j++) {
+			lastRotation[j] = nodeTransformTRS->rotation[j];
+		}
 	}
 	if (hasScale) {
 		scale = new float[times.size() * 3];
 	}
-	float* lastRotation = new float[4];
-	for (size_t j = 0; j < 4; j++) {
-		lastRotation[j] = nodeTransformTRS->rotation[j];
+	if (hasMorph) {
+		weights = new float[times.size() * numWeights];
 	}
 	for (size_t i = 0; i < bindings.getCount(); i++) {
 		const COLLADAFW::AnimationList::AnimationBinding& binding = bindings[i];
@@ -1458,6 +1576,12 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 				rotation[j * 4 + 3] = (float)quaternion.w;
 				minimizeRotationDistance = true;
 				break;
+			}
+			case COLLADAFW::AnimationList::ARRAY_ELEMENT_1D: {
+				if (needsInterpolation) {
+					return false;
+				}
+				weights[j * numWeights + binding.firstIndex] = output[j];
 			}}
 			// Sometimes when we decompose quaternions and then regenerate them, they flip chirality; this minimize the distance between quaternions to keep animations smooth
 			if (minimizeRotationDistance) {
@@ -1516,6 +1640,19 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 		sampler->output = outputAccessor;
 		target->node = node;
 		target->path = GLTF::Animation::Path::SCALE;
+		channel->target = target;
+		channel->sampler = sampler;
+		animation->channels.push_back(channel);
+	}
+	if (hasMorph) {
+		GLTF::Animation::Channel* channel = new GLTF::Animation::Channel();
+		GLTF::Animation::Channel::Target* target = new GLTF::Animation::Channel::Target();
+		GLTF::Animation::Sampler* sampler = new GLTF::Animation::Sampler();
+		GLTF::Accessor* outputAccessor = new GLTF::Accessor(GLTF::Accessor::Type::SCALAR, GLTF::Constants::WebGL::FLOAT, (unsigned char*)weights, times.size() * numWeights, (GLTF::Constants::WebGL) - 1);
+		sampler->input = inputAccessor;
+		sampler->output = outputAccessor;
+		target->node = node;
+		target->path = GLTF::Animation::Path::WEIGHTS;
 		channel->target = target;
 		channel->sampler = sampler;
 		animation->channels.push_back(channel);
@@ -1706,6 +1843,64 @@ bool COLLADA2GLTF::Writer::writeController(const COLLADAFW::Controller* controll
 
 		_skinInstances[skinControllerId] = skin;
 		_skinnedMeshes[skinControllerId] = mesh;
+	}
+	else if (controller->getControllerType() == COLLADAFW::Controller::CONTROLLER_TYPE_MORPH) {
+		COLLADAFW::MorphController* morphController = (COLLADAFW::MorphController*)controller;
+		COLLADAFW::UniqueIdArray& morphTargets = morphController->getMorphTargets();
+		COLLADAFW::FloatOrDoubleArray& morphWeights = morphController->getMorphWeights();
+
+		COLLADAFW::UniqueId meshId = morphController->getSource();
+		GLTF::Mesh* mesh = _meshInstances[meshId];
+
+		for (size_t i = 0; i < morphWeights.getValuesCount(); i++) {
+			float weightValue;
+			if (morphWeights.getType() == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT) {
+				weightValue = morphWeights.getFloatValues()->getData()[i];
+			} else if (morphWeights.getType() == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
+				weightValue = (float)morphWeights.getDoubleValues()->getData()[i];
+			}
+			mesh->weights.push_back(weightValue);
+		}
+
+		const COLLADAFW::UniqueId& animationListId = morphWeights.getAnimationList();
+		if (animationListId.isValid()) {
+			_meshMorphTargets[meshId] = animationListId;
+		}
+
+		for (size_t i = 0; i < morphTargets.getCount(); i++) {
+			COLLADAFW::UniqueId targetId = morphTargets[i];
+			GLTF::Mesh* meshTarget = _meshInstances[targetId];
+			if (mesh->primitives.size() > 0 && meshTarget->primitives.size() > 0) {
+				// These attributes need to be re-written as displacements relative to the base primitive
+				std::map<std::string, GLTF::Accessor*> baseAttributes = mesh->primitives[0]->attributes;
+				std::map<std::string, GLTF::Accessor*> targetAttributes = meshTarget->primitives[0]->attributes;
+				std::map<std::string, GLTF::Accessor*> buildAttributes;
+				for (const auto& baseAttributeEntry : baseAttributes) {
+					std::string attribute = baseAttributeEntry.first;
+					auto findAttribute = targetAttributes.find(attribute);
+					if (findAttribute != targetAttributes.end()) {
+						GLTF::Accessor* baseAccessor = baseAttributeEntry.second;
+						GLTF::Accessor* targetAccessor = new GLTF::Accessor(findAttribute->second);
+						size_t numComponents = baseAccessor->getNumberOfComponents();
+						float* baseComponent = new float[numComponents];
+						float* targetComponent = new float[numComponents];
+						for (size_t j = 0; j < baseAccessor->count && j < targetAccessor->count; j++) {
+							baseAccessor->getComponentAtIndex(j, baseComponent);
+							targetAccessor->getComponentAtIndex(j, targetComponent);
+							for (size_t k = 0; k < numComponents; k++) {
+								targetComponent[k] = targetComponent[k] - baseComponent[k]; 
+							}
+							targetAccessor->writeComponentAtIndex(j, targetComponent);
+						}
+						targetAccessor->computeMinMax();
+						buildAttributes[attribute] = targetAccessor;
+					}
+				}
+				GLTF::Primitive::Target* target = new GLTF::Primitive::Target();
+				target->attributes = buildAttributes;
+				mesh->primitives[0]->targets.push_back(target);
+			}
+		}
 	}
 	return true;
 }

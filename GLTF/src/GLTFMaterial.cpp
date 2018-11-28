@@ -148,7 +148,7 @@ void GLTF::MaterialPBR::Texture::writeJSON(void* writer, GLTF::Options* options)
 		jsonWriter->Key("index");
 		jsonWriter->Int(texture->id);
 	}
-	if (texCoord >= 0) {
+	if (texCoord > 0) {
 		jsonWriter->Key("texCoord");
 		jsonWriter->Int(texCoord);
 	}
@@ -859,7 +859,11 @@ GLTF::MaterialPBR::MaterialPBR() {
 GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) {
 	GLTF::MaterialPBR* material = new GLTF::MaterialPBR();
 	material->metallicRoughness->metallicFactor = 0;
+	bool hasTransparency = false;
 	if (values->diffuse) {
+		if (values->diffuse[3] < 1.0) {
+			hasTransparency = true;
+		}
 		material->metallicRoughness->baseColorFactor = values->diffuse;
 		if (options->specularGlossiness) {
 			material->specularGlossiness->diffuseFactor = values->diffuse;
@@ -867,6 +871,7 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) 
 	}
 	if (values->diffuseTexture) {
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
+		texture->texCoord = values->diffuseTexCoord;
 		texture->texture = values->diffuseTexture;
 		material->metallicRoughness->baseColorTexture = texture;
 		if (options->specularGlossiness) {
@@ -875,10 +880,14 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) 
 	}
 
 	if (values->emission) {
+		if (values->emission[3] < 1.0) {
+			hasTransparency = true;
+		}
 		material->emissiveFactor = values->emission;
 	}
 	if (values->emissionTexture) {
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
+		texture->texCoord = values->emissionTexCoord;
 		texture->texture = values->emissionTexture;
 		material->emissiveTexture = texture;
 		material->emissiveFactor = new float[3]{ 1.0, 1.0, 1.0 };
@@ -886,16 +895,21 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) 
 
 	if (values->ambientTexture) {
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
+		texture->texCoord = values->ambientTexCoord;
 		texture->texture = values->ambientTexture;
 		material->occlusionTexture = texture;
 	}
 
 	if (options->specularGlossiness) {
 		if (values->specular) {
+			if (values->specular[3] < 1.0) {
+				hasTransparency = true;
+			}
 			material->specularGlossiness->specularFactor = values->specular;
 		}
 		if (values->specularTexture) {
 			GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
+			texture->texCoord = values->specularTexCoord;
 			texture->texture = values->specularTexture;
 			material->specularGlossiness->specularGlossinessTexture = texture;
 		}
@@ -913,6 +927,26 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(GLTF::Options* options) 
 		GLTF::MaterialPBR::Texture* texture = new GLTF::MaterialPBR::Texture();
 		texture->texture = values->bumpTexture;
 		material->normalTexture = texture;
+	}
+
+	if (values->transparency) {
+		if (!material->metallicRoughness->baseColorFactor) {
+			float* baseColorFactor = new float[4];
+			baseColorFactor[0] = 1.0;
+			baseColorFactor[1] = 1.0;
+			baseColorFactor[2] = 1.0;
+			material->metallicRoughness->baseColorFactor = baseColorFactor;
+		}
+		float transparency = material->metallicRoughness->baseColorFactor[3];
+		transparency *= values->transparency[0];
+		material->metallicRoughness->baseColorFactor[3] = transparency;
+		if (transparency < 1.0) {
+			hasTransparency = true;
+		}
+	}
+
+	if (hasTransparency) {
+		material->alphaMode = "BLEND";
 	}
 
 	if (options->doubleSided || doubleSided) {
