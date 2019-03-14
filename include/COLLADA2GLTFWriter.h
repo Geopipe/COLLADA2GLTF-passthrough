@@ -19,6 +19,7 @@ namespace COLLADA2GLTF {
 		typedef int32_t signed_index_t;
 		const enum draco::DataType draco_index_t = draco::DT_UINT64;
 
+		COLLADASaxFWL::Loader* _loader;
 		GLTF::Asset* _asset;
 		COLLADA2GLTF::Options* _options;
 		COLLADA2GLTF::ExtrasHandler* _extrasHandler;
@@ -29,6 +30,7 @@ namespace COLLADA2GLTF {
 		std::map<COLLADAFW::UniqueId, GLTF::Camera*> _cameraInstances;
 		std::map<COLLADAFW::UniqueId, GLTF::Mesh*> _meshInstances;
 		std::map<COLLADAFW::UniqueId, GLTF::Node*> _nodeInstances;
+		std::map<COLLADAFW::UniqueId, GLTF::Animation*> _animationInstances;
 		std::map<COLLADAFW::UniqueId, std::vector<GLTF::Node*>> _nodeInstanceTargets;
 		std::map<COLLADAFW::UniqueId, std::map<int, std::set<GLTF::Primitive*>>> _meshMaterialPrimitiveMapping;
 		std::map<COLLADAFW::UniqueId, GLTF::MaterialCommon::Light*> _lightInstances;
@@ -46,7 +48,7 @@ namespace COLLADA2GLTF {
 		std::map<COLLADAFW::UniqueId, std::tuple<std::vector<float>, std::vector<float>>> _animationData;
 		std::map<COLLADAFW::UniqueId, std::map<std::string, GLTF::Texture*>> _effectTextureMapping;
 		std::map<COLLADAFW::UniqueId, COLLADAFW::UniqueId> _meshMorphTargets;
-		bool _use_uint_indices = false;
+		std::map<std::string, std::vector<COLLADAFW::UniqueId>> _animationClips;
 
 		bool writeNodeToGroup(std::vector<GLTF::Node*>* group, const COLLADAFW::Node* node);
 		bool writeNodesToGroup(std::vector<GLTF::Node*>* group, const COLLADAFW::NodePointerArray& nodes);
@@ -58,12 +60,17 @@ namespace COLLADA2GLTF {
 		std::string buildAttributeId(const COLLADAFW::MeshVertexData& data, const index_t index, const size_t count);
 
 	public:
-		Writer(GLTF::Asset* asset, COLLADA2GLTF::Options* options, COLLADA2GLTF::ExtrasHandler* handler);
-		void setUseUintIndices(const bool use_uint_indices);
+		Writer(COLLADASaxFWL::Loader* loader, GLTF::Asset* asset, COLLADA2GLTF::Options* options, COLLADA2GLTF::ExtrasHandler* handler);
 
-		/** Deletes the entire scene.
-			 @param errorMessage A message containing informations about the error that occurred.
-			 */
+		/**
+		 * Get animation groupings (from animation clips) by index.
+		 */
+		std::vector<std::vector<size_t>> getAnimationGroups();
+
+		/** 
+		 * Deletes the entire scene.
+		 * @param errorMessage A message containing informations about the error that occurred.
+		 */
 		void cancel(const std::string& errorMessage);
 
 		/** Prepare to receive data.*/
@@ -117,6 +124,10 @@ namespace COLLADA2GLTF {
 		/** Writes the animation.
 		 @return True on succeeded, false otherwise.*/
 		virtual bool writeAnimation(const COLLADAFW::Animation* animation);
+
+		/** Writes the animation clip.
+		 @return True on succeeded, false otherwise.*/
+		virtual bool writeAnimationClip(const COLLADAFW::AnimationClip* animationClip);
 
 		/** Writes the animation.
 		 @return True on succeeded, false otherwise.*/

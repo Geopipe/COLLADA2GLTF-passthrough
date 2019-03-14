@@ -186,7 +186,7 @@ int main(int argc, const char **argv) {
 
 		COLLADASaxFWL::Loader* loader = new COLLADASaxFWL::Loader();
 		COLLADA2GLTF::ExtrasHandler* extrasHandler = new COLLADA2GLTF::ExtrasHandler(loader);
-		COLLADA2GLTF::Writer* writer = new COLLADA2GLTF::Writer(asset, options, extrasHandler);
+		COLLADA2GLTF::Writer* writer = new COLLADA2GLTF::Writer(loader, asset, options, extrasHandler);
 		loader->registerExtraDataCallbackHandler((COLLADASaxFWL::IExtraDataCallbackHandler*)extrasHandler);
 		COLLADAFW::Root root(loader, writer);
 		if (!root.loadDocument(options->inputPath)) {
@@ -194,7 +194,7 @@ int main(int argc, const char **argv) {
 			return -1;
 		}
 
-		asset->mergeAnimations();
+		asset->mergeAnimations(writer->getAnimationGroups());
 		asset->removeUnusedNodes(options);
 		asset->removeUnusedSemantics();
 

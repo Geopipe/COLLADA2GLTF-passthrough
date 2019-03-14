@@ -4,7 +4,28 @@
 
 const double PI = 3.14159;
 
-COLLADA2GLTF::Writer::Writer(GLTF::Asset* asset, COLLADA2GLTF::Options* options, COLLADA2GLTF::ExtrasHandler* extrasHandler) : _asset(asset), _options(options), _extrasHandler(extrasHandler) {}
+COLLADA2GLTF::Writer::Writer(COLLADASaxFWL::Loader* loader, GLTF::Asset* asset, COLLADA2GLTF::Options* options, COLLADA2GLTF::ExtrasHandler* extrasHandler) : _loader(loader), _asset(asset), _options(options), _extrasHandler(extrasHandler) {}
+
+std::vector<std::vector<size_t>> COLLADA2GLTF::Writer::getAnimationGroups() {
+	std::map<GLTF::Animation*, size_t> animationIndexes;
+	for (size_t i = 0; i < _asset->animations.size(); i++) {
+		animationIndexes[_asset->animations[i]] = i;
+	}
+
+	std::vector<std::vector<size_t>> groups;
+	for (const auto& clip : _animationClips) {
+		std::vector<size_t> group;
+		for (COLLADAFW::UniqueId id : clip.second) {
+			GLTF::Animation* animation = _animationInstances[id];
+			if (animation) {
+				animation->name = clip.first;
+				group.push_back(animationIndexes[animation]);
+			}
+		}
+		groups.push_back(group);
+	}
+	return groups;
+}
 
 void COLLADA2GLTF::Writer::cancel(const std::string& errorMessage) {
 
@@ -41,10 +62,10 @@ bool COLLADA2GLTF::Writer::writeGlobalAsset(const COLLADAFW::FileInfo* asset) {
 			}
 
 			if (tokens.size() > 0) {
-				// Get major version
+				// Get major version (or lack of)
 				token = tokens[tokens.size() - 1];
 				try {
-					if (std::stoi(token) < 8) {
+					if (token == "SketchUp" || (std::stoi(token) < 8)) {
 						_options->invertTransparency = true;
 					}
 				} catch (const std::invalid_argument& e) {
@@ -173,6 +194,7 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 	GLTF::Node* node = new GLTF::Node();
 	COLLADABU::Math::Matrix4 matrix;
 	GLTF::Node::TransformMatrix* transform;
+
 	// Add root node to group
 	group->push_back(node);
 	const COLLADAFW::UniqueId& colladaNodeId = colladaNode->getUniqueId();
@@ -315,17 +337,21 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 	const COLLADAFW::InstanceLightPointerArray& instanceLights = colladaNode->getInstanceLights();
 	for (size_t i = 0; i < instanceLights.getCount(); i++) {
 		COLLADAFW::InstanceLight* instanceLight = instanceLights[i];
-		GLTF::MaterialCommon::Light* light = _lightInstances[instanceLight->getInstanciatedObjectId()];
-		node->light = light;
-		light->node = node;
+        auto it = _lightInstances.find(instanceLight->getInstanciatedObjectId());
+        if (it != _lightInstances.end()) {
+            node->light = it->second;
+            it->second->node = node;
+        }
 	}
 
 	// Instance cameras
 	const COLLADAFW::InstanceCameraPointerArray& instanceCameras = colladaNode->getInstanceCameras();
 	for (size_t i = 0; i < instanceCameras.getCount(); i++) {
 		COLLADAFW::InstanceCamera* instanceCamera = instanceCameras[i];
-		GLTF::Camera* camera = _cameraInstances[instanceCamera->getInstanciatedObjectId()];
-		node->camera = camera;
+        auto it = _cameraInstances.find(instanceCamera->getInstanciatedObjectId());
+        if (it != _cameraInstances.end()) {
+            node->camera = it->second;
+        }
 	}
 
 	// Identify and map unbound skeleton nodes
@@ -428,6 +454,14 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 		}
 	}
 
+	// Recurse child nodes
+	// Do this before we resolve instance nodes or else none of the cloned nodes will have children
+	const COLLADAFW::NodePointerArray& childNodes = colladaNode->getChildNodes();
+	bool result = true;
+	if (childNodes.getCount() > 0) {
+		result = this->writeNodesToGroup(&node->children, childNodes);
+	}
+
 	// Resolve instance nodes that we've seen for this node
 	std::map<COLLADAFW::UniqueId, std::vector<GLTF::Node*>>::iterator findNodeInstanceTargets = _nodeInstanceTargets.find(colladaNodeId);
 	if (findNodeInstanceTargets != _nodeInstanceTargets.end()) {
@@ -439,12 +473,7 @@ bool COLLADA2GLTF::Writer::writeNodeToGroup(std::vector<GLTF::Node*>* group, con
 		}
 	}
 
-	// Recurse child nodes
-	const COLLADAFW::NodePointerArray& childNodes = colladaNode->getChildNodes();
-	if (childNodes.getCount() > 0) {
-		return this->writeNodesToGroup(&node->children, childNodes);
-	}
-	return true;
+	return result;
 }
 
 bool COLLADA2GLTF::Writer::writeNodesToGroup(std::vector<GLTF::Node*>* group, const COLLADAFW::NodePointerArray& nodes) {
@@ -477,10 +506,25 @@ bool COLLADA2GLTF::Writer::writeScene(const COLLADAFW::Scene* scene) {
 	return true;
 }
 
+void RecursiveNodeDeleter(std::vector<GLTF::Node*>& nodes) {
+    for (auto& node : nodes) {
+        RecursiveNodeDeleter(node->children);
+        delete node;
+    }
+}
+
 bool COLLADA2GLTF::Writer::writeLibraryNodes(const COLLADAFW::LibraryNodes* libraryNodes) {
 	GLTF::Asset* asset = this->_asset;
 	GLTF::Scene* scene = asset->getDefaultScene();
-	return this->writeNodesToGroup(&scene->nodes, libraryNodes->getNodes());
+
+    // Library nodes can only be used to resolve instance_nodes, so we don't add the root node to a group
+    //  in the actual model. Instead we add to this temporary group that stores the original and
+    //  instance_nodes will be resolved with a clone so this group can be safely freed afterwards.
+    std::vector<GLTF::Node*> temporaryGroup;
+    bool result = this->writeNodesToGroup(&temporaryGroup, libraryNodes->getNodes());
+    RecursiveNodeDeleter(temporaryGroup);
+
+    return result;
 }
 
 void mapAttributeIndices(const unsigned int* rootIndices, const unsigned* indices, int count, std::string semantic, std::map<std::string, GLTF::Accessor*>* attributes, std::map<std::string, std::map<int, int>>* indicesMapping) {
@@ -1349,6 +1393,46 @@ void interpolateTranslation(float* base, std::vector<float> input, std::vector<f
 }
 
 /**
+ * Read the <COLLADAFW::AnimationClip> and store its animation group
+ * associations.
+ * 
+ * Currently, animations that target the same node cannot be split apart by
+ * animation clip. This is because COLLADA animations often target for example,
+ * X, Y, and Z translations as seperate animations and we flatten them together
+ * because glTF doesn't have the ability to target these channels seperately
+ * and it would take 3x the space to store them.
+ * 
+ * This is also done because in practice, animations targetting nodes are
+ * usually intended to be run together, and if two animations target the 
+ * same node, it is unclear what order their transforms should be applied in
+ * if there are overlapping keyframes in the animations. To avoid this
+ * potentially undefined case, node affinity trumps animation clip groups.
+ * 
+ * However, you could imagine the case (game assets, etc.) where a skinned
+ * figure has multiple different animations representing different actions
+ * to be taken. The current animation approach does not handle this, and I 
+ * think it would have to be done as a COLLADA2GLTF::Options because separating
+ * these animations is non-trivial. They may not even be grouped by clip,
+ * so that probably isn't a reliable way to do separation.
+ * 
+ * @return True on succeeded, false otherwise.
+ */
+bool COLLADA2GLTF::Writer::writeAnimationClip(const COLLADAFW::AnimationClip* animationClip) {
+	std::vector<COLLADAFW::UniqueId> animationIds;
+	const COLLADAFW::UniqueIdArray& instanceAnimationUniqueIds = animationClip->getInstanceAnimationUniqueIds();
+	for (size_t i = 0; i < instanceAnimationUniqueIds.getCount(); i++) {
+		const COLLADAFW::UniqueId animationId = instanceAnimationUniqueIds[i];
+		animationIds.push_back(animationId);
+	}
+	std::string name = animationClip->getName();
+	if (name == "") {
+		name = "animation_clip_" + std::to_string(_animationClips.size());
+	}
+	_animationClips[name] = animationIds;
+	return true;
+}
+
+/**
 * Reads a <COLLADAFW::AnimationList> and writes a <GLTF::Animation> object.
 *
 * A <COLLADAFW::AnimationList> targets a transformation on a node. This converter
@@ -1670,6 +1754,11 @@ bool COLLADA2GLTF::Writer::writeAnimationList(const COLLADAFW::AnimationList* an
 		channel->target = target;
 		channel->sampler = sampler;
 		animation->channels.push_back(channel);
+	}
+	// Map unique ids to the written animation instances
+	for (size_t i = 0; i < bindings.getCount(); i++) {
+		const COLLADAFW::AnimationList::AnimationBinding& binding = bindings[i];
+		_animationInstances[binding.animation] = animation;
 	}
 	_asset->animations.push_back(animation);
 	return true;
