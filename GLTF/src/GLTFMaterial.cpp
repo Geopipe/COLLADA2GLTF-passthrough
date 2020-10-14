@@ -300,6 +300,7 @@ void GLTF::MaterialPBR::writeJSON(void* writer, GLTF::Options* options) {
 		jsonWriter->EndObject();
 	}
 
+	this->alphaMode = "MASK";
 	if (!this->alphaMode.empty()) {
 		jsonWriter->Key("alphaMode");
 		jsonWriter->String(this->alphaMode.c_str());
