@@ -666,15 +666,13 @@ GLTF::Accessor* bufferAndMapVertexData(
 
 // BatchIds should be returned as an int so precision isn't lost.
 int COLLADA2GLTF::Writer::getMeshVertexDataOfBatchIdsAtIndex(
-    const COLLADAFW::MeshVertexData& data, const index_t index)
-{
+    const COLLADAFW::MeshVertexData& data, const index_t index) {
   COLLADAFW::FloatDoubleOrIntArray::DataType type = data.getType();
   return data.getIntValues()->getData()[index];
 }
 
 float COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(
-    const COLLADAFW::MeshVertexData& data, const index_t index)
-{
+    const COLLADAFW::MeshVertexData& data, const index_t index) {
   COLLADAFW::FloatDoubleOrIntArray::DataType type = data.getType();
   if (type == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
     return static_cast<float>(data.getDoubleValues()->getData()[index]);
@@ -684,8 +682,7 @@ float COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(
 
 std::string COLLADA2GLTF::Writer::buildAttributeId(
     const COLLADAFW::MeshVertexData& data, const index_t index,
-    const size_t count)
-{
+    const size_t count) {
   std::string id;
   for (size_t i = 0; i < count; i++) {
     if (data.getType() == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
@@ -934,8 +931,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
             }
             for (unsigned int k = 0; k < numberOfComponents; k++) {
               if (vertexData->getType() ==
-                  COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT)
-              {
+                  COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
                 int value = getMeshVertexDataOfBatchIdsAtIndex(*vertexData,
                     semanticIndex * stride + k);
                 buildAttributes[semantic].push_back(value);
