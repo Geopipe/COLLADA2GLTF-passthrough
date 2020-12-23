@@ -686,13 +686,12 @@ std::string COLLADA2GLTF::Writer::buildAttributeId(
   std::string id;
   for (size_t i = 0; i < count; i++) {
     if (data.getType() == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
-      id +=
-          std::to_string(getMeshVertexDataOfBatchIdsAtIndex(data,
-          index * count + i)) + ":";
+      id += std::to_string(
+                getMeshVertexDataOfBatchIdsAtIndex(data, index * count + i)) +
+            ":";
     } else {
-      id +=
-          std::to_string(getMeshVertexDataAtIndex(data,
-          index * count + i)) + ":";
+      id += std::to_string(getMeshVertexDataAtIndex(data, index * count + i)) +
+            ":";
     }
   }
   return id;
@@ -932,8 +931,8 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
             for (unsigned int k = 0; k < numberOfComponents; k++) {
               if (vertexData->getType() ==
                   COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
-                int value = getMeshVertexDataOfBatchIdsAtIndex(*vertexData,
-                    semanticIndex * stride + k);
+                int value = getMeshVertexDataOfBatchIdsAtIndex(
+                    *vertexData, semanticIndex * stride + k);
                 buildAttributes[semantic].push_back(value);
               } else {
                 float value = getMeshVertexDataAtIndex(
