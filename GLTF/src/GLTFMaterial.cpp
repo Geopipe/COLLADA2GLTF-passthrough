@@ -964,8 +964,10 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(
     texture->texture = values->diffuseTexture;
     material->metallicRoughness->baseColorTexture = texture;
     if (options->specularGlossiness) {
-      // Terrible hack to avoid a segfault: please just use shared pointers properly!
-      material->specularGlossiness->diffuseTexture = new GLTF::MaterialPBR::Texture(*texture);
+      // Terrible hack to avoid a segfault:
+	  // please just use shared pointers properly!
+      material->specularGlossiness->diffuseTexture =
+          new GLTF::MaterialPBR::Texture(*texture);
     }
   }
 
