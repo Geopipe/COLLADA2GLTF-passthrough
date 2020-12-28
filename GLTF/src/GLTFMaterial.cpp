@@ -164,8 +164,14 @@ void GLTF::MaterialPBR::Texture::writeJSON(void* writer,
 }
 
 GLTF::MaterialPBR::MetallicRoughness::~MetallicRoughness() {
-  delete baseColorTexture;
-  delete metallicRoughnessTexture;
+  if (nullptr != baseColorTexture) {
+    delete baseColorTexture;
+    baseColorTexture = nullptr;
+  }
+  if (nullptr != metallicRoughnessTexture) {
+    delete metallicRoughnessTexture;
+    metallicRoughnessTexture = nullptr;
+  }
 
   // baseColorFactor is stored in this->values
 }
@@ -206,8 +212,14 @@ void GLTF::MaterialPBR::MetallicRoughness::writeJSON(void* writer,
 }
 
 GLTF::MaterialPBR::SpecularGlossiness::~SpecularGlossiness() {
-  delete diffuseTexture;
-  delete specularGlossinessTexture;
+  if (nullptr != diffuseTexture) {
+    delete diffuseTexture;
+    diffuseTexture = nullptr;
+  }
+  if (nullptr != specularGlossinessTexture) {
+    delete specularGlossinessTexture;
+    specularGlossinessTexture = nullptr;
+  }
 
   // diffuseFactor, specularFactor, glossinessFactor are stored in this->values
 }
@@ -899,13 +911,31 @@ std::string GLTF::MaterialCommon::getTechniqueKey(GLTF::Options* options) {
 }
 
 GLTF::MaterialPBR::~MaterialPBR() {
-  delete metallicRoughness;
-  delete specularGlossiness;
+  if (nullptr != this->metallicRoughness) {
+    delete this->metallicRoughness;
+    this->metallicRoughness = nullptr;
+  }
+  if (nullptr != this->specularGlossiness) {
+    delete this->specularGlossiness;
+    this->specularGlossiness = nullptr;
+  }
 
-  delete normalTexture;
-  delete occlusionTexture;
-  delete emissiveTexture;
-  delete emissiveFactor;
+  if (nullptr != normalTexture) {
+    delete normalTexture;
+    normalTexture = nullptr;
+  }
+  if (nullptr != occlusionTexture) {
+    delete occlusionTexture;
+    occlusionTexture = nullptr;
+  }
+  if (nullptr != emissiveTexture) {
+    delete emissiveTexture;
+    emissiveTexture = nullptr;
+  }
+  if (nullptr != emissiveFactor) {
+    delete[] emissiveFactor;
+    emissiveFactor = nullptr;
+  }
 }
 
 GLTF::MaterialPBR::MaterialPBR() {
@@ -934,7 +964,8 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(
     texture->texture = values->diffuseTexture;
     material->metallicRoughness->baseColorTexture = texture;
     if (options->specularGlossiness) {
-      material->specularGlossiness->diffuseTexture = texture;
+      // Terrible hack to avoid a segfault: please just use shared pointers properly!
+      material->specularGlossiness->diffuseTexture = new GLTF::MaterialPBR::Texture(*texture);
     }
   }
 
