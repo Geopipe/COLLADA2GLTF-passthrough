@@ -1214,16 +1214,16 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
     const COLLADAFW::EffectCommon* effectCommon = commonEffects[0];
     switch (effectCommon->getShaderType()) {
       case COLLADAFW::EffectCommon::SHADER_BLINN:
-        material->technique = GLTF::MaterialCommon::BLINN;
+        material->technique = GLTF::Material::Technique::BLINN;
         break;
       case COLLADAFW::EffectCommon::SHADER_CONSTANT:
-        material->technique = GLTF::MaterialCommon::CONSTANT;
+        material->technique = GLTF::Material::Technique::CONSTANT;
         break;
       case COLLADAFW::EffectCommon::SHADER_PHONG:
-        material->technique = GLTF::MaterialCommon::PHONG;
+        material->technique = GLTF::Material::Technique::PHONG;
         break;
       case COLLADAFW::EffectCommon::SHADER_LAMBERT:
-        material->technique = GLTF::MaterialCommon::LAMBERT;
+        material->technique = GLTF::Material::Technique::LAMBERT;
         break;
     }
 

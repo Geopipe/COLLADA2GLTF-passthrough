@@ -12,7 +12,8 @@
 namespace GLTF {
 class Material : public GLTF::Object {
  public:
-  enum Type { MATERIAL, MATERIAL_COMMON, PBR_METALLIC_ROUGHNESS, UNKNOWN };
+  enum class Technique { BLINN, PHONG, LAMBERT, CONSTANT, UNKNOWN };
+  enum class Type { MATERIAL, MATERIAL_COMMON, PBR_METALLIC_ROUGHNESS, UNKNOWN };
 
   class Values {
    public:
@@ -36,6 +37,8 @@ class Material : public GLTF::Object {
   };
 
   GLTF::Technique* technique = NULL;
+  Technique originalTechnique = Technique::UNKNOWN;
+
   Type type = Type::UNKNOWN;
   Values* values = NULL;
   bool doubleSided = false;
@@ -116,7 +119,6 @@ class MaterialPBR : public GLTF::Material {
 
 class MaterialCommon : public GLTF::Material {
  public:
-  enum Technique { BLINN, PHONG, LAMBERT, CONSTANT, UNKNOWN };
 
   class Light : public GLTF::Object {
    public:

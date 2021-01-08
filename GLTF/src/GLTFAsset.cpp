@@ -293,8 +293,8 @@ std::vector<GLTF::Texture*> GLTF::Asset::getAllTextures() {
   std::vector<GLTF::Texture*> textures;
   std::set<GLTF::Texture*> uniqueTextures;
   for (GLTF::Material* material : getAllMaterials()) {
-    if (material->type == GLTF::Material::MATERIAL ||
-        material->type == GLTF::Material::MATERIAL_COMMON) {
+    if (material->type == GLTF::Material::Type::MATERIAL ||
+        material->type == GLTF::Material::Type::MATERIAL_COMMON) {
       GLTF::Material::Values* values = material->values;
       if (values->ambientTexture != NULL) {
         if (uniqueTextures.find(values->ambientTexture) ==
@@ -330,7 +330,7 @@ std::vector<GLTF::Texture*> GLTF::Asset::getAllTextures() {
           uniqueTextures.insert(values->bumpTexture);
         }
       }
-    } else if (material->type == GLTF::Material::PBR_METALLIC_ROUGHNESS) {
+    } else if (material->type == GLTF::Material::Type::PBR_METALLIC_ROUGHNESS) {
       GLTF::MaterialPBR* materialPBR = (GLTF::MaterialPBR*)material;
       if (materialPBR->metallicRoughness->baseColorTexture != NULL) {
         if (uniqueTextures.find(

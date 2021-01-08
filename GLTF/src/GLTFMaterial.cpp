@@ -7,7 +7,7 @@
 
 GLTF::Material::Material() {
   this->values = new GLTF::Material::Values();
-  this->type = GLTF::Material::MATERIAL;
+  this->type = GLTF::Material::Type::MATERIAL;
 }
 
 GLTF::Material::~Material() {
@@ -298,7 +298,10 @@ void GLTF::MaterialPBR::writeJSON(void* writer, GLTF::Options* options) {
     occlusionTexture->writeJSON(writer, options);
     jsonWriter->EndObject();
   }
-  if (options->specularGlossiness) {
+  // Only use specularGlossiness extension if PHONG/BLINN technique
+  if (options->specularGlossiness &&
+      (this->originalTechnique == GLTF::Material::Technique::PHONG ||
+       this->originalTechnique == GLTF::Material::Technique::BLINN)) {
     jsonWriter->Key("extensions");
     jsonWriter->StartObject();
     jsonWriter->Key("KHR_materials_pbrSpecularGlossiness");
@@ -372,18 +375,18 @@ void GLTF::MaterialCommon::Light::writeJSON(void* writer,
 }
 
 GLTF::MaterialCommon::MaterialCommon() {
-  this->type = GLTF::Material::MATERIAL_COMMON;
+  this->type = GLTF::Material::Type::MATERIAL_COMMON;
 }
 
 const char* GLTF::MaterialCommon::getTechniqueName() {
   switch (this->technique) {
-    case BLINN:
+	  case GLTF::Material::Technique::BLINN:
       return "BLINN";
-    case PHONG:
+    case GLTF::Material::Technique::PHONG:
       return "PHONG";
-    case LAMBERT:
+    case GLTF::Material::Technique::LAMBERT:
       return "LAMBERT";
-    case CONSTANT:
+    case GLTF::Material::Technique::CONSTANT:
       return "CONSTANT";
   }
   return NULL;
@@ -939,7 +942,7 @@ GLTF::MaterialPBR::~MaterialPBR() {
 }
 
 GLTF::MaterialPBR::MaterialPBR() {
-  this->type = GLTF::Material::PBR_METALLIC_ROUGHNESS;
+  this->type = GLTF::Material::Type::PBR_METALLIC_ROUGHNESS;
   this->metallicRoughness = new GLTF::MaterialPBR::MetallicRoughness();
   this->specularGlossiness = new GLTF::MaterialPBR::SpecularGlossiness();
 }
@@ -947,6 +950,7 @@ GLTF::MaterialPBR::MaterialPBR() {
 GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(
     GLTF::Options* options) {
   GLTF::MaterialPBR* material = new GLTF::MaterialPBR();
+  material->originalTechnique = this->technique;
   material->metallicRoughness->metallicFactor = 0;
   bool hasTransparency = false;
   if (values->diffuse) {
