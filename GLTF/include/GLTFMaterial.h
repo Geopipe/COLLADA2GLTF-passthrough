@@ -13,7 +13,8 @@ namespace GLTF {
 class Material : public GLTF::Object {
  public:
   enum class Technique { BLINN, PHONG, LAMBERT, CONSTANT, UNKNOWN };
-  enum class Type { MATERIAL, MATERIAL_COMMON, PBR_METALLIC_ROUGHNESS, UNKNOWN };
+  enum class Type { MATERIAL, MATERIAL_COMMON, PBR_METALLIC_ROUGHNESS,
+                    UNKNOWN };
 
   class Values {
    public:
@@ -119,7 +120,6 @@ class MaterialPBR : public GLTF::Material {
 
 class MaterialCommon : public GLTF::Material {
  public:
-
   class Light : public GLTF::Object {
    public:
     enum Type { AMBIENT, DIRECTIONAL, POINT, SPOT, UNKOWN };

@@ -380,7 +380,7 @@ GLTF::MaterialCommon::MaterialCommon() {
 
 const char* GLTF::MaterialCommon::getTechniqueName() {
   switch (this->technique) {
-	  case GLTF::Material::Technique::BLINN:
+    case GLTF::Material::Technique::BLINN:
       return "BLINN";
     case GLTF::Material::Technique::PHONG:
       return "PHONG";
