@@ -637,7 +637,7 @@ GLTF::Accessor* bufferAndMapVertexData(
     std::map<int, int> indicesMapping) {
   int count = vertexData.getValuesCount();
   float* floatBuffer = new float[count];
-  COLLADAFW::FloatOrDoubleArray::DataType dataType = vertexData.getType();
+  COLLADAFW::FloatDoubleOrIntArray::DataType dataType = vertexData.getType();
   for (int i = 0; i < count; i++) {
     int index = i;
     std::map<int, int>::iterator mappedIndex = indicesMapping.find(index);
@@ -645,11 +645,11 @@ GLTF::Accessor* bufferAndMapVertexData(
       index = mappedIndex->second;
     }
     switch (dataType) {
-      case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+      case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE:
         floatBuffer[index] =
             static_cast<float>(vertexData.getDoubleValues()->getData()[i]);
         break;
-      case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+      case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT:
         floatBuffer[index] = vertexData.getFloatValues()->getData()[i];
         break;
       default:
@@ -666,8 +666,8 @@ GLTF::Accessor* bufferAndMapVertexData(
 
 float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data,
                                int index) {
-  COLLADAFW::FloatOrDoubleArray::DataType type = data.getType();
-  if (type == COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE) {
+  COLLADAFW::FloatDoubleOrIntArray::DataType type = data.getType();
+  if (type == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
     return static_cast<float>(data.getDoubleValues()->getData()[index]);
   }
   return data.getFloatValues()->getData()[index];
@@ -1486,11 +1486,11 @@ bool COLLADA2GLTF::Writer::writeAnimation(
     float value;
     for (int i = 0; i < inputLength; i++) {
       switch (inputArray.getType()) {
-        case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+        case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE:
           value =
               static_cast<float>(inputArray.getDoubleValues()->getData()[i]);
           break;
-        case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+        case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT:
           value = inputArray.getFloatValues()->getData()[i];
           break;
       }
@@ -1498,11 +1498,11 @@ bool COLLADA2GLTF::Writer::writeAnimation(
     }
     for (int i = 0; i < outputLength; i++) {
       switch (outputArray.getType()) {
-        case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE:
+        case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE:
           value =
               static_cast<float>(outputArray.getDoubleValues()->getData()[i]);
           break;
-        case COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT:
+        case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT:
           value = outputArray.getFloatValues()->getData()[i];
           break;
       }
@@ -2057,10 +2057,10 @@ bool COLLADA2GLTF::Writer::writeSkinControllerData(
         unsigned int weightIndex = weightIndicesArray[j + offset];
         float weightValue;
         if (weightsArray.getType() ==
-            COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT) {
+            COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT) {
           weightValue = weightsArray.getFloatValues()->getData()[weightIndex];
         } else if (weightsArray.getType() ==
-                   COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE) {
+                   COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
           weightValue = static_cast<float>(
               weightsArray.getDoubleValues()->getData()[weightIndex]);
         }
@@ -2189,10 +2189,10 @@ bool COLLADA2GLTF::Writer::writeController(
     for (size_t i = 0; i < morphWeights.getValuesCount(); i++) {
       float weightValue;
       if (morphWeights.getType() ==
-          COLLADAFW::FloatOrDoubleArray::DATA_TYPE_FLOAT) {
+          COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_FLOAT) {
         weightValue = morphWeights.getFloatValues()->getData()[i];
       } else if (morphWeights.getType() ==
-                 COLLADAFW::FloatOrDoubleArray::DATA_TYPE_DOUBLE) {
+                 COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
         weightValue =
             static_cast<float>(morphWeights.getDoubleValues()->getData()[i]);
       }
