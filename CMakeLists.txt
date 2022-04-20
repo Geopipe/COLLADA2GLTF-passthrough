@@ -139,6 +139,7 @@ add_subdirectory(dependencies/ahoy)
 if(NOT NO_COLLADA2GLTF_BIN)
   add_executable(${PROJECT_NAME}-bin src/main.cpp)
   target_link_libraries(${PROJECT_NAME}-bin ${PROJECT_NAME} ahoy draco)
+  install(TARGETS ${PROJECT_NAME}-bin)
 endif()
 
 if(TEST_ENABLED)
