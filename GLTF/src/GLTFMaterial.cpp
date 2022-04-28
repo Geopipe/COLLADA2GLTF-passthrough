@@ -904,7 +904,7 @@ GLTF::MaterialPBR::~MaterialPBR() {
   delete normalTexture;
   delete occlusionTexture;
   delete emissiveTexture;
-  delete emissiveFactor;
+  delete [] emissiveFactor;
 }
 
 GLTF::MaterialPBR::MaterialPBR() {
@@ -933,7 +933,7 @@ GLTF::MaterialPBR* GLTF::MaterialCommon::getMaterialPBR(
     texture->texture = values->diffuseTexture;
     material->metallicRoughness->baseColorTexture = texture;
     if (options->specularGlossiness) {
-      material->specularGlossiness->diffuseTexture = texture;
+      material->specularGlossiness->diffuseTexture = new GLTF::MaterialPBR::Texture(*texture);
     }
   }
 

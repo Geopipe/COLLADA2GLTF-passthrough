@@ -20,6 +20,7 @@ class Node : public GLTF::Object {
     Type type;
 
     virtual Transform* clone() = 0;
+    virtual ~Transform() = default;
   };
 
   class TransformTRS;
