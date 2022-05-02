@@ -45,6 +45,7 @@ Compiled binaries for Windows, MacOS, and Linux can be found under [releases](ht
   COLLADA2GLTF-test[.exe]
   GLTF-test[.exe]
   ```
+=======
 
 ## Usage
 

@@ -604,14 +604,14 @@ void mapAttributeIndices(
     std::string semantic, std::map<std::string, GLTF::Accessor*>* attributes,
     std::map<std::string, std::map<int, int>>* indicesMapping) {
   indicesMapping->emplace(semantic, std::map<int, int>());
-  for (int i = 0; i < count; i++) {
+  for (size_t i = 0; i < count; i++) {
     unsigned int rootIndex = rootIndices[i];
     unsigned int index = indices[i];
     if (rootIndex != index) {
       indicesMapping->at(semantic).emplace(rootIndex, index);
     }
   }
-  attributes->emplace(semantic, (GLTF::Accessor*)NULL);
+  attributes->emplace(semantic, (GLTF::Accessor*)nullptr);
 }
 
 void mapAttributeIndicesArray(
@@ -635,11 +635,11 @@ GLTF::Accessor* bufferAndMapVertexData(
     GLTF::BufferView* bufferView, GLTF::Accessor::Type type,
     const COLLADAFW::MeshVertexData& vertexData,
     std::map<int, int> indicesMapping) {
-  int count = vertexData.getValuesCount();
+  size_t count = vertexData.getValuesCount();
   float* floatBuffer = new float[count];
   COLLADAFW::FloatDoubleOrIntArray::DataType dataType = vertexData.getType();
-  for (int i = 0; i < count; i++) {
-    int index = i;
+  for (size_t i = 0; i < count; i++) {
+    size_t index = i;
     std::map<int, int>::iterator mappedIndex = indicesMapping.find(index);
     if (mappedIndex != indicesMapping.end()) {
       index = mappedIndex->second;
@@ -664,8 +664,14 @@ GLTF::Accessor* bufferAndMapVertexData(
   return accessor;
 }
 
-float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data,
-                               int index) {
+// BatchIds should be returned as an int so precision isn't lost.
+int COLLADA2GLTF::Writer::getMeshVertexDataOfBatchIdsAtIndex(
+    const COLLADAFW::MeshVertexData& data, const index_t index) {
+  return data.getIntValues()->getData()[index];
+}
+
+float COLLADA2GLTF::Writer::getMeshVertexDataAtIndex(
+    const COLLADAFW::MeshVertexData& data, const index_t index) {
   COLLADAFW::FloatDoubleOrIntArray::DataType type = data.getType();
   if (type == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE) {
     return static_cast<float>(data.getDoubleValues()->getData()[index]);
@@ -673,12 +679,19 @@ float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data,
   return data.getFloatValues()->getData()[index];
 }
 
-std::string buildAttributeId(const COLLADAFW::MeshVertexData& data, int index,
-                             int count) {
+std::string COLLADA2GLTF::Writer::buildAttributeId(
+    const COLLADAFW::MeshVertexData& data, const index_t index,
+    const size_t count) {
   std::string id;
-  for (int i = 0; i < count; i++) {
-    id +=
-        std::to_string(getMeshVertexDataAtIndex(data, index * count + i)) + ":";
+  for (size_t i = 0; i < count; i++) {
+    if (data.getType() == COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
+      id += std::to_string(
+                getMeshVertexDataOfBatchIdsAtIndex(data, index * count + i)) +
+            ":";
+    } else {
+      id += std::to_string(getMeshVertexDataAtIndex(data, index * count + i)) +
+            ":";
+    }
   }
   return id;
 }
@@ -829,6 +842,14 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
           primitive->attributes[semantic] = (GLTF::Accessor*)NULL;
         }
       }
+      if (colladaPrimitive->hasBatchIdIndices()) {
+        semantic = "_BATCHID";
+        buildAttributes[semantic] = std::vector<float>();
+        semanticIndices[semantic] =
+            colladaPrimitive->getBatchIdIndices().getData();
+        semanticData[semantic] = &colladaMesh->getBatchIds();
+        primitive->attributes[semantic] = (GLTF::Accessor*)NULL;
+      }
 
       unsigned int index = 0;
       unsigned int face = 0;
@@ -871,6 +892,8 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
           unsigned int numberOfComponents = 3;
           if (semantic.find("TEXCOORD") == 0) {
             numberOfComponents = 2;
+          } else if (semantic == "_BATCHID") {
+            numberOfComponents = 1;
           }
           attributeId += buildAttributeId(*semanticData[semantic],
                                           semanticIndices[semantic][j],
@@ -886,6 +909,7 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
             unsigned int numberOfComponents = 3;
             bool flipY = false;
             bool position = false;
+            bool batchid = false;
             if (semantic.find("TEXCOORD") == 0) {
               numberOfComponents = 2;
               flipY = true;
@@ -895,6 +919,10 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
               position = true;
               mapping.push_back(semanticIndex);
             }
+            if (semantic == "_BATCHID") {
+              batchid = true;
+              numberOfComponents = 1;
+            }
             const COLLADAFW::MeshVertexData* vertexData =
                 semanticData[semantic];
             unsigned int stride = numberOfComponents;
@@ -902,15 +930,22 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
               stride = vertexData->getStride(0);
             }
             for (unsigned int k = 0; k < numberOfComponents; k++) {
-              float value = getMeshVertexDataAtIndex(
-                  *vertexData, semanticIndex * stride + k);
-              if (flipY && k == 1) {
-                value = 1 - value;
+              if (vertexData->getType() ==
+                  COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_INT) {
+                int value = getMeshVertexDataOfBatchIdsAtIndex(
+                    *vertexData, semanticIndex * stride + k);
+                buildAttributes[semantic].push_back(value);
+              } else {
+                float value = getMeshVertexDataAtIndex(
+                    *vertexData, semanticIndex * stride + k);
+                if (flipY && k == 1) {
+                  value = 1 - value;
+                }
+                if (position) {
+                  value = value * _assetScale;
+                }
+                buildAttributes[semantic].push_back(value);
               }
-              if (position) {
-                value = value * _assetScale;
-              }
-              buildAttributes[semantic].push_back(value);
             }
           }
           attributeIndicesMapping[attributeId] = index;
@@ -966,6 +1001,9 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
         GLTF::Accessor::Type type = GLTF::Accessor::Type::VEC3;
         if (semantic.find("TEXCOORD") == 0) {
           type = GLTF::Accessor::Type::VEC2;
+        }
+        if (semantic.find("_BATCHID") == 0) {
+          type = GLTF::Accessor::Type::SCALAR;
         }
         GLTF::Accessor* accessor = new GLTF::Accessor(
             type, GLTF::Constants::WebGL::FLOAT,
@@ -1177,16 +1215,16 @@ bool COLLADA2GLTF::Writer::writeEffect(const COLLADAFW::Effect* effect) {
     const COLLADAFW::EffectCommon* effectCommon = commonEffects[0];
     switch (effectCommon->getShaderType()) {
       case COLLADAFW::EffectCommon::SHADER_BLINN:
-        material->technique = GLTF::MaterialCommon::BLINN;
+        material->technique = GLTF::Material::Technique::BLINN;
         break;
       case COLLADAFW::EffectCommon::SHADER_CONSTANT:
-        material->technique = GLTF::MaterialCommon::CONSTANT;
+        material->technique = GLTF::Material::Technique::CONSTANT;
         break;
       case COLLADAFW::EffectCommon::SHADER_PHONG:
-        material->technique = GLTF::MaterialCommon::PHONG;
+        material->technique = GLTF::Material::Technique::PHONG;
         break;
       case COLLADAFW::EffectCommon::SHADER_LAMBERT:
-        material->technique = GLTF::MaterialCommon::LAMBERT;
+        material->technique = GLTF::Material::Technique::LAMBERT;
         break;
     }
 
@@ -1484,7 +1522,7 @@ bool COLLADA2GLTF::Writer::writeAnimation(
     std::vector<float> outputValues = std::vector<float>();
 
     float value;
-    for (int i = 0; i < inputLength; i++) {
+    for (size_t i = 0; i < inputLength; i++) {
       switch (inputArray.getType()) {
         case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE:
           value =
@@ -1496,7 +1534,7 @@ bool COLLADA2GLTF::Writer::writeAnimation(
       }
       inputValues.push_back(value);
     }
-    for (int i = 0; i < outputLength; i++) {
+    for (size_t i = 0; i < outputLength; i++) {
       switch (outputArray.getType()) {
         case COLLADAFW::FloatDoubleOrIntArray::DATA_TYPE_DOUBLE:
           value =
@@ -1522,7 +1560,7 @@ void interpolateTranslation(float* base, std::vector<float> input,
   float startTranslation = 0;
   float endTime = 0;
   float endTranslation = 0;
-  int inputSize = input.size();
+  size_t inputSize = input.size();
 
   if (index < 0) {
     startTranslation = base[offset];

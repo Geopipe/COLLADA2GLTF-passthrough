@@ -13,6 +13,7 @@
 #include "COLLADAFW.h"
 #include "GLTFAsset.h"
 #include "draco/compression/encode.h"
+#include "draco/core/draco_types.h"
 
 namespace COLLADA2GLTF {
 class Writer : public COLLADAFW::IWriter {
@@ -70,6 +71,17 @@ class Writer : public COLLADAFW::IWriter {
                                     COLLADAFW::SamplerID samplerId);
   GLTF::Texture* fromColladaTexture(const COLLADAFW::EffectCommon* effectCommon,
                                     COLLADAFW::Texture texture);
+
+  typedef uint32_t index_t;
+  typedef int32_t signed_index_t;
+  const enum draco::DataType draco_index_t = draco::DT_UINT64;
+
+  float getMeshVertexDataAtIndex(const COLLADAFW::MeshVertexData& data,
+                                 const index_t index);
+  int getMeshVertexDataOfBatchIdsAtIndex(const COLLADAFW::MeshVertexData& data,
+                                         const index_t index);
+  std::string buildAttributeId(const COLLADAFW::MeshVertexData& data,
+                               const index_t index, const size_t count);
 
  public:
   Writer(COLLADASaxFWL::Loader* loader, GLTF::Asset* asset,
