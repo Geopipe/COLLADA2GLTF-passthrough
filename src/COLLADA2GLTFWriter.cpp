@@ -667,7 +667,6 @@ GLTF::Accessor* bufferAndMapVertexData(
 // BatchIds should be returned as an int so precision isn't lost.
 int COLLADA2GLTF::Writer::getMeshVertexDataOfBatchIdsAtIndex(
     const COLLADAFW::MeshVertexData& data, const index_t index) {
-  COLLADAFW::FloatDoubleOrIntArray::DataType type = data.getType();
   return data.getIntValues()->getData()[index];
 }
 
@@ -893,6 +892,8 @@ bool COLLADA2GLTF::Writer::writeMesh(const COLLADAFW::Mesh* colladaMesh) {
           unsigned int numberOfComponents = 3;
           if (semantic.find("TEXCOORD") == 0) {
             numberOfComponents = 2;
+          } else if (semantic == "_BATCHID") {
+            numberOfComponents = 1;
           }
           attributeId += buildAttributeId(*semanticData[semantic],
                                           semanticIndices[semantic][j],
