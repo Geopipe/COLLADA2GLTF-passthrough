@@ -94,22 +94,36 @@ if(PRECOMPILED_DIR)
     ${PRECOMPILED_DIR}/LibXML.lib
     ${PRECOMPILED_DIR}/MathMLSolver.lib
     ${PRECOMPILED_DIR}/pcre.lib)
+else()
+  message(STATUS "No Precompiled OpenCOLLADA")
+  if(DEFINED OpenCOLLADA_PREFIX AND NOT DEFINED OPENCOLLADA_VERSION_STRING)
+    message(STATUS "Searching in ${OpenCOLLADA_PREFIX} because no OPENCOLLADA_VERSION_STRING")
+    list(APPEND CMAKE_MODULE_PATH "${OpenCOLLADA_PREFIX}/share/opencollada/cmake/Modules")
+    find_package(LibXml2 REQUIRED)
+    find_package(PCRE REQUIRED) # transitive depdendency for OpenCOLLADA
+    find_package(OpenCOLLADA REQUIRED CONFIG HINTS ${OpenCOLLADA_PREFIX}/lib/opencollada/cmake NO_DEFAULT_PATH)
+  endif()
+  if(DEFINED OPENCOLLADA_VERSION_STRING)
+    message(STATUS "Have OpenCOLLADA ${OPENCOLLADA_VERSION_STRING}")
+	  set(OpenCOLLADA OpenCOLLADASaxFrameworkLoader_shared)
+  endif()
 endif()
 
-if(NOT DEFINED COLLADA_LIBRARIES AND NOT DEFINED COLLADA_FRAMEWORK_LIBRARIES)
-  # COLLADASaxFrameworkLoader/BaseUtils/Framework, GeneratedSaxParser
-  include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADASaxFrameworkLoader/include)
-  include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADABaseUtils/include)
-  include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADAFramework/include)
-  include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/GeneratedSaxParser/include)
-  include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/Externals/pcre/include)
-  if(NOT OpenCOLLADA)
-    add_subdirectory(dependencies/OpenCOLLADA/modules/COLLADASaxFrameworkLoader)
-    set(OpenCOLLADA COLLADASaxFrameworkLoader)
-  endif()
-else()
-  set(OpenCOLLADA ${COLLADA_LIBRARIES} ${COLLADA_FRAMEWORK_LIBRARIES})
+
+if(NOT DEFINED OPENCOLLADA_INCLUDE_DIRS)
+# COLLADASaxFrameworkLoader/BaseUtils/Framework, GeneratedSaxParser
+include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADASaxFrameworkLoader/include)
+include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADABaseUtils/include)
+include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/COLLADAFramework/include)
+include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/GeneratedSaxParser/include)
+include_directories(dependencies/OpenCOLLADA/OpenCOLLADA/Externals/pcre/include)
 endif()
+
+if(NOT OpenCOLLADA)
+  add_subdirectory(dependencies/OpenCOLLADA/modules/COLLADASaxFrameworkLoader)
+  set(OpenCOLLADA COLLADASaxFrameworkLoader)
+endif()
+
 
 # COLLADA2GLTF
 include_directories(include)
@@ -125,6 +139,7 @@ add_subdirectory(dependencies/ahoy)
 if(NOT NO_COLLADA2GLTF_BIN)
   add_executable(${PROJECT_NAME}-bin src/main.cpp)
   target_link_libraries(${PROJECT_NAME}-bin ${PROJECT_NAME} ahoy draco)
+  install(TARGETS ${PROJECT_NAME}-bin)
 endif()
 
 if(TEST_ENABLED)
