@@ -27,10 +27,13 @@ else()
 endif()
 
 # Draco
-if(DEFINED DRACO_INCLUDE_DIR)
-  include_directories(${DRACO_INCLUDE_DIR})
-else()
-  include_directories(GLTF/dependencies/draco/src)
+find_package(draco 1.5.2 CONFIG HINTS "${DRACO_INSTALL_PREFIX}")
+if(NOT TARGET draco::draco)
+  if(DEFINED DRACO_INCLUDE_DIR)
+    include_directories(${DRACO_INCLUDE_DIR})
+  else()
+    include_directories(GLTF/dependencies/draco/src)
+  endif()
 endif()
 
 # Pre-compiled
@@ -138,7 +141,12 @@ add_subdirectory(dependencies/ahoy)
 
 if(NOT NO_COLLADA2GLTF_BIN)
   add_executable(${PROJECT_NAME}-bin src/main.cpp)
-  target_link_libraries(${PROJECT_NAME}-bin ${PROJECT_NAME} ahoy draco)
+  target_link_libraries(${PROJECT_NAME}-bin ${PROJECT_NAME} ahoy)
+  if(TARGET draco::draco)
+    target_link_libraries(${PROJECT_NAME}-bin draco::draco)
+  else()
+    target_link_libraries(${PROJECT_NAME}-bin draco)
+  endif()
   install(TARGETS ${PROJECT_NAME}-bin)
 endif()
 
